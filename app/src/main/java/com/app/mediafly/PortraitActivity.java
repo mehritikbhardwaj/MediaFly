@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -12,6 +13,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 import android.widget.VideoView;
@@ -57,6 +59,7 @@ public class PortraitActivity extends AppCompatActivity {
 
     ArrayList<NewsModel> newsItemList = new ArrayList<>();
     ArrayList<String> fileName = new ArrayList<>();
+    ArrayList<String> newFileList = new ArrayList<>();
     ArrayList<String> fileType = new ArrayList<>();
     ArrayList<String> qrUrl = new ArrayList<>();
     ArrayList<String> pendingDownloads = new ArrayList<>();
@@ -83,6 +86,7 @@ public class PortraitActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         declareUiThings();
 
@@ -111,18 +115,32 @@ public class PortraitActivity extends AppCompatActivity {
             }
         });
 
+        videoView.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+            @Override
+            public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
+                return false;
+            }
+        });
     }
 
     private void getDataFromDbAndPlayMedia() {
-        fileType = mediaDb.getList("format");
-        fileName = mediaDb.getList("fileName");
+        fileType = mediaDb.getDownloadedFileList("format");
+        fileName = mediaDb.getDownloadedFileList("fileName");
         pendingDownloads = mediaDb.getPendingFileNames();
 
-        if(!pendingDownloads.isEmpty()){
-            callDownloadMediaFunction(pendingDownloads.get(0),true);
+        if(pendingDownloads.isEmpty()){
+            for (int i = 0;i<fileName.size();i++){
+                if(!checkIfFileExists(fileName.get(i))){
+                    pendingDownloads.add(fileName.get(i));
+                }
+            }
         }
-        Toast.makeText(this, String.valueOf(pendingDownloads.size()), Toast.LENGTH_SHORT).show();
-            playGraphics();
+
+        if (!pendingDownloads.isEmpty()) {
+            callDownloadMediaFunction(pendingDownloads.get(0), true);
+        }
+        // Toast.makeText(this, String.valueOf(pendingDownloads.size()), Toast.LENGTH_SHORT).show();
+        playGraphics();
     }
 
     private void declareUiThings() {
@@ -193,14 +211,14 @@ public class PortraitActivity extends AppCompatActivity {
         videoView.start();
     }
 
-    private void callDownloadMediaFunction(String fileName,Boolean isComingFromPending) {
+    private void callDownloadMediaFunction(String fileName, Boolean isComingFromPending) {
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.setMessage("Downloading Resources");
         mProgressDialog.setIndeterminate(true);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         mProgressDialog.setCancelable(true);
         // execute this when the downloader must be fired
-        final DownloadTask downloadTask = new DownloadTask(this, fileName,isComingFromPending);
+        final DownloadTask downloadTask = new DownloadTask(this, fileName, isComingFromPending);
         downloadTask.execute(Constants.BASE_URL + fileName);
 
         mProgressDialog.setOnCancelListener(dialog -> {
@@ -212,10 +230,10 @@ public class PortraitActivity extends AppCompatActivity {
 
         private final Context context;
         private String fileName = "";
-        private Boolean isComingFromPending;
+        private final Boolean isComingFromPending;
         private PowerManager.WakeLock mWakeLock;
 
-        public DownloadTask(Context context, String fileName,Boolean isComingFromPending) {
+        public DownloadTask(Context context, String fileName, Boolean isComingFromPending) {
             this.context = context;
             this.fileName = fileName;
             this.isComingFromPending = isComingFromPending;
@@ -307,13 +325,13 @@ public class PortraitActivity extends AppCompatActivity {
             mProgressDialog.dismiss();
             if (availableForDownload > downloadedCount) {
                 mediaDb.updateData(fileName);
-                callDownloadMediaFunction(PortraitActivity.this.fileName.get(downloadedCount),false);
+                callDownloadMediaFunction(PortraitActivity.this.fileName.get(downloadedCount), false);
                 downloadedCount++;
             }
             if (availableForDownload.equals(downloadedCount)) {
                 playGraphics();
             }
-            if (isComingFromPending){
+            if (isComingFromPending) {
                 mediaDb.updateData(fileName);
             }
             if (result != null) {
@@ -461,7 +479,7 @@ public class PortraitActivity extends AppCompatActivity {
                             }
                         }
                         availableForDownload = fileName.size();
-                        callDownloadMediaFunction(fileName.get(downloadedCount),false);
+                        callDownloadMediaFunction(fileName.get(downloadedCount), false);
                     } else {
                         Toast.makeText(PortraitActivity.this, "Something went wrong!", Toast.LENGTH_SHORT).show();
                     }
@@ -522,5 +540,35 @@ public class PortraitActivity extends AppCompatActivity {
         }
     }
 
+    private void deleteFromDownloads(String path) {
+        Uri uri = Uri.parse(Environment.getExternalStorageDirectory()
+                + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                File.separator + path);
 
+        File file = new File(uri.getPath());
+        file.delete();
+        if (file.exists()) {
+            try {
+                file.getCanonicalFile().delete();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (file.exists()) {
+                getApplicationContext().deleteFile(file.getName());
+            }
+        }
+    }
+
+    private Boolean checkIfFileExists(String path) {
+        Uri uri = Uri.parse(Environment.getExternalStorageDirectory()
+                + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                File.separator + path);
+
+        File file = new File(uri.getPath());
+        if (file.exists()) {
+            return true;
+        }else {
+            return false;
+        }
+    }
 }

@@ -28,6 +28,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
                 " sequence integer , event integer," +
                 " isDownloaded integer,actionUrl text,startDate text,endDate text)";
         sqLiteDatabase.execSQL(q);
+
     }
 
     public Cursor getFileNameData() {
@@ -101,6 +102,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
     }
 
 
+/*
     public ArrayList<String> getList(String type) {
         ArrayList<String> typeList = new ArrayList<>();
 
@@ -118,7 +120,6 @@ public class mediaDatabase extends SQLiteOpenHelper {
         try {
             if (cursor.moveToFirst()) {
                 do {
-
                     typeList.add(cursor.getString(cursor.getColumnIndex(type)));
                 } while (cursor.moveToNext());
             }
@@ -131,8 +132,30 @@ public class mediaDatabase extends SQLiteOpenHelper {
         }
         return typeList;
     }
+*/
 
-    public ArrayList<String> getPendingFileNames(){
+    public ArrayList<String> getDownloadedFileList(String type) {
+        ArrayList<String> downloadedList = new ArrayList<>();
+
+        SQLiteDatabase database = this.getWritableDatabase();
+        Cursor cursor = database.rawQuery("select * from media where isDownloaded=?", new String[]{"1"});
+        try {
+            if (cursor.moveToFirst()) {
+                do {
+                    downloadedList.add(cursor.getString(cursor.getColumnIndex(type)));
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.d(TAG, "Error while trying to get downloaded list from database");
+        } finally {
+            if (cursor != null && !cursor.isClosed()) {
+                cursor.close();
+            }
+        }
+        return downloadedList;
+    }
+
+    public ArrayList<String> getPendingFileNames() {
         ArrayList<String> pendingList = new ArrayList<>();
 
         SQLiteDatabase database = this.getWritableDatabase();
@@ -152,6 +175,14 @@ public class mediaDatabase extends SQLiteOpenHelper {
         }
         return pendingList;
 
+    }
+
+    public void deleteARow(String fileName) {
+        SQLiteDatabase database = this.getWritableDatabase();
+        long result = database.delete("media", "fileName=?", new String[]{fileName});
+        if (result == -1) {
+            Log.d(TAG, "Failed to delete");
+        } else Log.d(TAG, "Successfully deleted");
     }
 
 

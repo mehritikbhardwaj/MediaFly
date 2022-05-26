@@ -12,6 +12,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.app.mediafly.MainActivity;
+import com.app.mediafly.PortraitActivity;
 import com.app.mediafly.R;
 import com.app.mediafly.common.Constants;
 import com.app.mediafly.common.Utilities;
@@ -45,16 +46,7 @@ public class LoginActivity extends AppCompatActivity {
 
 
         btn_login.setOnClickListener(view -> {
-         /*   Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-            startActivity(intent);
-            finish();*/
-
-           /* Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
-            startActivity(intent);
-            finish();*/
-//            callLoginApi();
-
-            /*if (et_email.getText().length() == 0 || et_password.getText().length() == 0) {
+            if (et_email.getText().length() == 0 || et_password.getText().length() == 0) {
                 Toast.makeText(this, "Please enter id and password.", Toast.LENGTH_SHORT).show();
             } else {
                 if (Utils.isNetworkAvailable(this)) {
@@ -62,7 +54,7 @@ public class LoginActivity extends AppCompatActivity {
                 } else {
                     Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
                 }
-            }*/
+            }
         });
     }
 
@@ -82,7 +74,7 @@ public class LoginActivity extends AppCompatActivity {
         LoginRequestModel requestModel = new LoginRequestModel();
         requestModel.setIp(Utilities.getIPAddress(true));
         requestModel.setDevice_serial("sample string 1");
-        requestModel.setKey("AX7709");
+        requestModel.setKey("AX7909");
 
         Call<LoginResponseModel> call = apiService.Login(headers, requestModel);
 
@@ -116,18 +108,15 @@ public class LoginActivity extends AppCompatActivity {
                     Utilities.setStringPreference(LoginActivity.this, Constants.ORIENTATION,
                             model.getOrientation(), Constants.PREF_NAME);
 
-                    Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-                    startActivity(intent);
-                    finish();
-                 /*   if (Utilities.getStringPref(LoginActivity.this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
-                        Intent intent = new Intent(getApplicationContext(), LandscapeActivity.class);
-                        startActivity(intent);
-                        finish();
-                    } else {
+                    if (Utilities.getStringPref(LoginActivity.this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
                         Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
                         startActivity(intent);
                         finish();
-                    }*/
+                    } else {
+                        Intent intent1 = new Intent(getApplicationContext(), MainActivity.class);
+                        startActivity(intent1);
+                        finish();
+                    }
                 } else {
                     Toast.makeText(LoginActivity.this, "Invalid login credentials!",
                             Toast.LENGTH_SHORT).show();

@@ -5,12 +5,17 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import com.app.mediafly.common.Constants;
+import com.app.mediafly.common.Utilities;
+import com.app.mediafly.login.LoginActivity;
 
 public class SplashActivity extends AppCompatActivity {
     Handler handler;
@@ -21,40 +26,20 @@ public class SplashActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, STORAGE_PERMISSION_CODE);
-        handler = new Handler();
-        handler.postDelayed(() -> {
-          /*  if (Utilities.getStringPref(this, Constants.IS_LOGGED_IN, Constants.PREF_NAME).equals("YES")) {
-                if (Utilities.getStringPref(this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
-                    Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
-                    startActivity(intent);
-                    finish();
-                } else {
-                    Intent intent = new Intent(getApplicationContext(), LandscapeActivity.class);
-                    startActivity(intent);
-                    finish();
-                }
-            } else {
-                Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
-                startActivity(intent);
-                finish();
-            }*/
-            Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
-            startActivity(intent);
-            finish();
-        }, 3000);
+
     }
 
 
     // Function to check and request permission
-    public void checkPermission(String permission, int requestCode)
-    {
+    public void checkPermission(String permission, int requestCode) {
         // Checking if permission is not granted
         if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_DENIED) {
             ActivityCompat.requestPermissions(this, new String[] { permission }, requestCode);
-        }
-        else {
+        } else {
+            callNextScreen();
             //Toast.makeText(this, "Permission already granted", Toast.LENGTH_SHORT).show();
         }
     }
@@ -73,8 +58,10 @@ public class SplashActivity extends AppCompatActivity {
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show();
+                callNextScreen();
             }
             else {
+                checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, STORAGE_PERMISSION_CODE);
                 Toast.makeText(this, "Storage Permission Denied", Toast.LENGTH_SHORT).show();
             }
         }
@@ -82,6 +69,23 @@ public class SplashActivity extends AppCompatActivity {
 
 
 
+    private void callNextScreen(){
+        if (Utilities.getStringPref(this, Constants.IS_LOGGED_IN, Constants.PREF_NAME).equals("YES")) {
+            if (Utilities.getStringPref(this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
+                Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
+                startActivity(intent);
+                finish();
+            } else {
+                Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        } else {
+            Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+            startActivity(intent);
+            finish();
+        }
+    }
 
 
 }
