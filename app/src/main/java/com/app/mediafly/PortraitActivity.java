@@ -24,6 +24,7 @@ import com.app.mediafly.common.Constants;
 import com.app.mediafly.common.Utilities;
 import com.app.mediafly.common.VerticalTextView;
 import com.app.mediafly.database.mediaDatabase;
+import com.app.mediafly.database.newMediaDatabase;
 import com.app.mediafly.login.LoginActivity;
 import com.app.mediafly.retrofit.ApiService;
 import com.app.mediafly.retrofit.RetroClient;
@@ -53,13 +54,13 @@ public class PortraitActivity extends AppCompatActivity {
     ProgressDialog mProgressDialog;
     VideoView videoView;
     mediaDatabase mediaDb;
+    newMediaDatabase newMediaDatabase;
 
     List<NewsModel> newsList = new ArrayList<>();
     List<MediaModel> mediaList = new ArrayList<>();
 
     ArrayList<NewsModel> newsItemList = new ArrayList<>();
     ArrayList<String> fileName = new ArrayList<>();
-    ArrayList<String> newFileList = new ArrayList<>();
     ArrayList<String> fileType = new ArrayList<>();
     ArrayList<String> qrUrl = new ArrayList<>();
     ArrayList<String> pendingDownloads = new ArrayList<>();
@@ -91,6 +92,7 @@ public class PortraitActivity extends AppCompatActivity {
         declareUiThings();
 
         mediaDb = new mediaDatabase(this);
+        newMediaDatabase = new newMediaDatabase(this);
 
         // callGetNewsListApi();
         //  mediaDb.clearDatabase();
@@ -460,6 +462,7 @@ public class PortraitActivity extends AppCompatActivity {
 
                         for (int i = 0; i < mediaList.size(); i++) {
 
+
                             Boolean insertResponse = mediaDb.insert_data((mediaList.get(i).getSize()),
                                     (mediaList.get(i).getFormat()),
                                     (mediaList.get(i).getFilename()),
@@ -476,8 +479,22 @@ public class PortraitActivity extends AppCompatActivity {
                                 fileName.add((mediaList.get(i).getFilename()));
                                 fileType.add((mediaList.get(i).getFormat()));
                                 qrUrl.add(mediaList.get(i).getQrcode());
+
                             }
+                            newMediaDatabase.insert_data((mediaList.get(i).getSize()),
+                                    (mediaList.get(i).getFormat()),
+                                    (mediaList.get(i).getFilename()),
+                                    (mediaList.get(i).getStime()),
+                                    (mediaList.get(i).getEtime()),
+                                    (mediaList.get(i).getOrder()),
+                                    (mediaList.get(i).getEid()),
+                                    1,
+                                    (mediaList.get(i).getQrcode()),
+                                    (mediaList.get(i).getSdate()),
+                                    (mediaList.get(i).getEdate()));
                         }
+
+
                         availableForDownload = fileName.size();
                         callDownloadMediaFunction(fileName.get(downloadedCount), false);
                     } else {
