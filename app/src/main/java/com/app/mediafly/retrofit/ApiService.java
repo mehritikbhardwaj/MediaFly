@@ -3,6 +3,7 @@ package com.app.mediafly.retrofit;
 import com.app.mediafly.AppInfoModel;
 import com.app.mediafly.MediaModel;
 import com.app.mediafly.NewsModel;
+import com.app.mediafly.common.SuccessModel;
 import com.app.mediafly.login.LoginRequestModel;
 import com.app.mediafly.login.LoginResponseModel;
 
@@ -31,6 +32,10 @@ public interface ApiService {
     @GET("GetMedia")
     Call<List<MediaModel>> GetMedia(@HeaderMap Map<String, String> headers,
                                     @Query("ip") String ip);
+
+    @GET("MediaPlay")
+    Call<SuccessModel> MediaPlay(@HeaderMap Map<String, String> headers,
+                                 @Query("mid") String mid);
 
     @GET("GetNews")
     Call<List<NewsModel>> GetNews(@HeaderMap Map<String, String> headers,

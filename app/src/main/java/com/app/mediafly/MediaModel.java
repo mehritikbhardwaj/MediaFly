@@ -13,6 +13,10 @@ public class MediaModel {
     @Expose
     private Integer order;
 
+    @SerializedName("duration")
+    @Expose
+    private Integer duration;
+
     @SerializedName("filename")
     @Expose
     private String filename;
@@ -136,5 +140,13 @@ public class MediaModel {
 
     public void setQrcode(String qrcode) {
         this.qrcode = qrcode;
+    }
+
+    public Integer getDuration() {
+        return duration;
+    }
+
+    public void setDuration(Integer duration) {
+        this.duration = duration;
     }
 }

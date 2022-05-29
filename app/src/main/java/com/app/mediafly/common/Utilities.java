@@ -6,10 +6,14 @@ import android.provider.Settings;
 import android.util.Log;
 
 import com.app.mediafly.BuildConfig;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -48,6 +52,27 @@ public class Utilities {
         return sharedPreferences.getString(key, "");
     }
 
+    public static void saveListInPreference(Context cxt,ArrayList<String>list,String prefName,String key){
+        Gson gson = new Gson();
+        String jsonString = gson.toJson(list);
+
+        SharedPreferences.Editor editor = getPrefsEditor(cxt, prefName);
+        editor.putString(key,jsonString);
+        editor.apply();
+    }
+
+    public static ArrayList<String> getList(Context cxt, String prefName, String key){
+        SharedPreferences sharedPreferences = cxt.getSharedPreferences(prefName,
+                Context.MODE_PRIVATE);
+
+        String jsonString =sharedPreferences.getString(key,"");
+        Gson gson = new Gson();
+
+        Type type = new TypeToken<ArrayList<String>>(){}.getType();
+        ArrayList<String> list = gson.fromJson(jsonString,type);
+        return list;
+    }
+
     public static void saveIntPreference(Context cxt,
                                          String key,
                                          int value,
@@ -56,6 +81,7 @@ public class Utilities {
         editor.putInt(key, value);
         editor.apply();
     }
+
 
     public static int getIntPreference(Context cxt,
                                        String key,

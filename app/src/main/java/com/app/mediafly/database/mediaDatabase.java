@@ -26,7 +26,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
                 " fileName text primary key,startTime text ," +
                 " endTime text, " +
                 " sequence integer , event integer," +
-                " isDownloaded integer,actionUrl text,startDate text,endDate text)";
+                " isDownloaded integer,actionUrl text,startDate text,endDate text,duration integer)";
         sqLiteDatabase.execSQL(q);
 
     }
@@ -61,7 +61,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
             String size, String format, String fileName,
             String startTime, String endTime,
             Integer sequence, Integer event,
-            Integer isDownloaded, String actionUrl, String startDate, String endDate) {
+            Integer isDownloaded, String actionUrl, String startDate, String endDate,Integer duration) {
 
         SQLiteDatabase dbMedia = this.getWritableDatabase();
         ContentValues c = new ContentValues();
@@ -76,6 +76,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
         c.put("actionUrl", actionUrl);
         c.put("startDate", startDate);
         c.put("endDate", endDate);
+        c.put("duration",duration);
 
         long r = dbMedia.insert("media", null, c);
         return r != -1;
@@ -95,6 +96,32 @@ public class mediaDatabase extends SQLiteOpenHelper {
         } else return false;
     }
 
+    public boolean update_db_data(
+            String size, String format, String fileName,
+            String startTime, String endTime,
+            Integer sequence, Integer event,
+            Integer isDownloaded, String actionUrl, String startDate, String endDate,Integer duration) {
+
+        SQLiteDatabase dbMedia = this.getWritableDatabase();
+        ContentValues c = new ContentValues();
+        c.put("size", size);
+        c.put("format", format);
+        c.put("startTime", startTime);
+        c.put("endTime", endTime);
+        c.put("sequence", sequence);
+        c.put("event", event);
+        c.put("actionUrl", actionUrl);
+        c.put("startDate", startDate);
+        c.put("endDate", endDate);
+        c.put("duration",duration);
+
+        Cursor cursor = dbMedia.rawQuery("select * from media where fileName=?", new String[]{fileName});
+        if (cursor.getCount() > 0) {
+            long r = dbMedia.update("media", c, "fileName=?", new String[]{fileName});
+            return r != -1;
+        } else return false;
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase sqLiteDatabase, int i, int i1) {
         sqLiteDatabase.execSQL("drop table if exists media");
@@ -102,7 +129,6 @@ public class mediaDatabase extends SQLiteOpenHelper {
     }
 
 
-/*
     public ArrayList<String> getList(String type) {
         ArrayList<String> typeList = new ArrayList<>();
 
@@ -124,7 +150,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
                 } while (cursor.moveToNext());
             }
         } catch (Exception e) {
-            Log.d(TAG, "Error while trying to get posts from database");
+            Log.d(TAG, "Error while trying to get media from database");
         } finally {
             if (cursor != null && !cursor.isClosed()) {
                 cursor.close();
@@ -132,7 +158,7 @@ public class mediaDatabase extends SQLiteOpenHelper {
         }
         return typeList;
     }
-*/
+
 
     public ArrayList<String> getDownloadedFileList(String type) {
         ArrayList<String> downloadedList = new ArrayList<>();
@@ -184,6 +210,5 @@ public class mediaDatabase extends SQLiteOpenHelper {
             Log.d(TAG, "Failed to delete");
         } else Log.d(TAG, "Successfully deleted");
     }
-
 
 }

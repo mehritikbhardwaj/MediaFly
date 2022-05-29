@@ -456,7 +456,7 @@ public class MainActivity extends AppCompatActivity {
                                     0,
                                     (mediaList.get(i).getQrcode()),
                                     (mediaList.get(i).getSdate()),
-                                    (mediaList.get(i).getEdate()));
+                                    (mediaList.get(i).getEdate()),mediaList.get(i).getDuration());
 
                             if (insertResponse) {
                                 fileName.add((mediaList.get(i).getFilename()));

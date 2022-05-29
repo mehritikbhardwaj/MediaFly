@@ -21,10 +21,11 @@ import android.widget.VideoView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.app.mediafly.common.Constants;
+import com.app.mediafly.common.SuccessModel;
 import com.app.mediafly.common.Utilities;
+import com.app.mediafly.common.Utils;
 import com.app.mediafly.common.VerticalTextView;
 import com.app.mediafly.database.mediaDatabase;
-import com.app.mediafly.database.newMediaDatabase;
 import com.app.mediafly.login.LoginActivity;
 import com.app.mediafly.retrofit.ApiService;
 import com.app.mediafly.retrofit.RetroClient;
@@ -54,7 +55,6 @@ public class PortraitActivity extends AppCompatActivity {
     ProgressDialog mProgressDialog;
     VideoView videoView;
     mediaDatabase mediaDb;
-    newMediaDatabase newMediaDatabase;
 
     List<NewsModel> newsList = new ArrayList<>();
     List<MediaModel> mediaList = new ArrayList<>();
@@ -69,17 +69,17 @@ public class PortraitActivity extends AppCompatActivity {
     Integer j = 0, i = 0, downloadedCount = 0, availableForDownload = 0;
     ImageView imageQR, imageView;
     Handler handler = new Handler();
+
     Runnable runnable;
-    int delay = 5000;
+    int delay = 1000 * 10;
+    int count = 0;
 
     @Override
     protected void onResume() {
-        callGetNewsListApi();
         handler.postDelayed(runnable = () -> {
             handler.postDelayed(runnable, delay);
             setText();
         }, delay);
-
         super.onResume();
     }
 
@@ -92,14 +92,24 @@ public class PortraitActivity extends AppCompatActivity {
         declareUiThings();
 
         mediaDb = new mediaDatabase(this);
-        newMediaDatabase = new newMediaDatabase(this);
+        if (Utils.isNetworkAvailable(this)) {
+            callGetNewsListApi();
+        } else {
+            Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+        }
+        // mediaDb.clearDatabase();
 
-        // callGetNewsListApi();
-        //  mediaDb.clearDatabase();
+        // callGetMediaListApi();
 
+        handleTextViewVisibility();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
-            callGetMediaListApi();
+            generateQR();
+            if (Utils.isNetworkAvailable(this)) {
+                callGetMediaListApi();
+            } else {
+                Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+            }
         } else {
             getDataFromDbAndPlayMedia();
         }
@@ -107,10 +117,25 @@ public class PortraitActivity extends AppCompatActivity {
         videoView.setOnCompletionListener(mediaPlayer -> {
             if (mediaDb.checkDbIsEmpty()) {
                 playFromRaw();
-                callGetMediaListApi();
+                if (Utils.isNetworkAvailable(this)) {
+                    callGetMediaListApi();
+                } else {
+                    Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+                }
             } else {
                 if (availableForDownload.equals(downloadedCount)) {
-                    getDataFromDbAndPlayMedia();
+                    if (count == 5) {
+                        count = 0;
+                        if (Utils.isNetworkAvailable(this)) {
+                            callGetMediaListApi();
+                        } else {
+                            Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        availableForDownload = 0;
+                        downloadedCount = 0;
+                        setLatestDataToDB();
+                    }
                 } else {
                     playFromRaw();
                 }
@@ -120,30 +145,92 @@ public class PortraitActivity extends AppCompatActivity {
         videoView.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             @Override
             public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
-                return false;
+                if (mediaDb.checkDbIsEmpty()) {
+                    playFromRaw();
+                    if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                        callGetMediaListApi();
+                    } else {
+                        Toast.makeText(PortraitActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    if (availableForDownload.equals(downloadedCount)) {
+                        availableForDownload = 0;
+                        downloadedCount = 0;
+                        setLatestDataToDB();
+                    } else {
+                        playFromRaw();
+                    }
+                }
+                return true;
             }
         });
+
+    }
+
+    private void setLatestDataToDB() {
+        if (mediaList.size() != 0) {
+            mediaDb.clearDatabase();
+            Toast.makeText(this, "cleared", Toast.LENGTH_SHORT).show();
+            for (int i = 0; i < mediaList.size(); i++) {
+                try {
+                    mediaDb.insert_data((mediaList.get(i).getSize()),
+                            (mediaList.get(i).getFormat()),
+                            (mediaList.get(i).getFilename()),
+                            (mediaList.get(i).getStime()),
+                            (mediaList.get(i).getEtime()),
+                            (mediaList.get(i).getOrder()),
+                            (mediaList.get(i).getEid()),
+                            1,
+                            (mediaList.get(i).getQrcode()),
+                            (mediaList.get(i).getSdate()),
+                            (mediaList.get(i).getEdate()),mediaList.get(i).getDuration());
+                } catch (Exception e) {
+
+                }
+            }
+        }
+        getDataFromDbAndPlayMedia();
+        deleteTempFolder();
     }
 
     private void getDataFromDbAndPlayMedia() {
+        ArrayList<String> availableList = mediaDb.getList("fileName");
+        for (int i = 0; i < availableList.size(); i++) {
+            if (!checkIfFileExists(Environment.getExternalStorageDirectory()
+                    + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                    File.separator + availableList.get(i))) {
+                pendingDownloads.add(availableList.get(i));
+            } else {
+                mediaDb.updateData(availableList.get(i));
+            }
+        }
+
         fileType = mediaDb.getDownloadedFileList("format");
         fileName = mediaDb.getDownloadedFileList("fileName");
+        qrUrl = mediaDb.getList("actionUrl");
+
         pendingDownloads = mediaDb.getPendingFileNames();
 
-        if(pendingDownloads.isEmpty()){
-            for (int i = 0;i<fileName.size();i++){
-                if(!checkIfFileExists(fileName.get(i))){
-                    pendingDownloads.add(fileName.get(i));
+
+        if (!pendingDownloads.isEmpty()) {
+            if (checkIfFileExists(Environment.getExternalStorageDirectory()
+                    + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                    File.separator + pendingDownloads.get(0))) {
+                mediaDb.updateData(pendingDownloads.get(0));
+            } else {
+                if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                    callDownloadMediaFunction(pendingDownloads.get(0), true);
+                } else {
+                    Toast.makeText(PortraitActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
                 }
             }
         }
 
-        if (!pendingDownloads.isEmpty()) {
-            callDownloadMediaFunction(pendingDownloads.get(0), true);
-        }
+
         // Toast.makeText(this, String.valueOf(pendingDownloads.size()), Toast.LENGTH_SHORT).show();
         playGraphics();
     }
+
 
     private void declareUiThings() {
         videoView = findViewById(R.id.videoView);
@@ -155,6 +242,7 @@ public class PortraitActivity extends AppCompatActivity {
 
     //Play video and images from the available data
     private void playGraphics() {
+        count++;
         handler = new Handler();
         Integer cnt = fileType.size();
         if (i < cnt) {
@@ -164,10 +252,17 @@ public class PortraitActivity extends AppCompatActivity {
         String type = fileType.get(i);
 
         String path = fileName.get(i);
+
+        String qr = qrUrl.get(i);
         i++;
         if (type.equals("Video")) {
             imageView.setVisibility(View.GONE);
             videoView.setVisibility(View.VISIBLE);
+            generateQR(qr);
+            if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                callMediaPlayApi(fileName.get(i));
+            } else {
+            }
             try {
                 videoView.setVideoURI(Uri.parse(Environment.getExternalStorageDirectory()
                         + File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + path));
@@ -178,6 +273,11 @@ public class PortraitActivity extends AppCompatActivity {
         } else {
             videoView.setVisibility(View.GONE);
             imageView.setVisibility(View.VISIBLE);
+            generateQR(qr);
+            if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                callMediaPlayApi(fileName.get(i));
+            } else {
+            }
             try {
                 Uri uri = Uri.parse(Environment.getExternalStorageDirectory()
                         + File.separator + Environment.DIRECTORY_DOWNLOADS +
@@ -186,7 +286,6 @@ public class PortraitActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-
             handler.postDelayed(() -> {
                 playGraphics();
             }, 10000);
@@ -197,7 +296,7 @@ public class PortraitActivity extends AppCompatActivity {
     private void generateQR() {
         MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
         try {
-            BitMatrix bitMatrix = multiFormatWriter.encode("https://www.google.com",
+            BitMatrix bitMatrix = multiFormatWriter.encode("https://www.mediafly.in/",
                     BarcodeFormat.QR_CODE, 200, 200);
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
@@ -327,9 +426,21 @@ public class PortraitActivity extends AppCompatActivity {
             mProgressDialog.dismiss();
             if (availableForDownload > downloadedCount) {
                 mediaDb.updateData(fileName);
-                callDownloadMediaFunction(PortraitActivity.this.fileName.get(downloadedCount), false);
-                downloadedCount++;
+                if (checkIfFileExists(Environment.getExternalStorageDirectory()
+                        + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                        File.separator + fileName)) {
+                    mediaDb.updateData(fileName);
+                } else {
+                    if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                        callDownloadMediaFunction(PortraitActivity.this.fileName.get(downloadedCount), false);
+                        downloadedCount++;
+                    } else {
+                        Toast.makeText(PortraitActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+                    }
+
+                }
             }
+
             if (availableForDownload.equals(downloadedCount)) {
                 playGraphics();
             }
@@ -338,7 +449,12 @@ public class PortraitActivity extends AppCompatActivity {
             }
             if (result != null) {
                 Toast.makeText(PortraitActivity.this, "Download error: " + result, Toast.LENGTH_LONG).show();
+              /*  String path = Environment.getExternalStorageDirectory() +
+                        File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
+                File file = new File(path);
+                */
                 Log.d("Download", result);
+                downloadedCount++;
             } else
                 Toast.makeText(PortraitActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
         }
@@ -355,7 +471,7 @@ public class PortraitActivity extends AppCompatActivity {
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "1");
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
 
         Call<List<NewsModel>> call = apiService.GetNews(headers, Utilities.getIPAddress(true));
 
@@ -446,7 +562,7 @@ public class PortraitActivity extends AppCompatActivity {
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "1");
+        headers.put("deviceid", "2");
 
         //  headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
 
@@ -460,45 +576,65 @@ public class PortraitActivity extends AppCompatActivity {
                     mediaList = response.body();
                     if (!mediaList.isEmpty()) {
 
+                        Toast.makeText(PortraitActivity.this, "refreshed", Toast.LENGTH_SHORT).show();
                         for (int i = 0; i < mediaList.size(); i++) {
 
+                            try {
+                                Boolean insertResponse = mediaDb.insert_data((mediaList.get(i).getSize()),
+                                        (mediaList.get(i).getFormat()),
+                                        (mediaList.get(i).getFilename()),
+                                        (mediaList.get(i).getStime()),
+                                        (mediaList.get(i).getEtime()),
+                                        (mediaList.get(i).getOrder()),
+                                        (mediaList.get(i).getEid()),
+                                        0,
+                                        (mediaList.get(i).getQrcode()),
+                                        (mediaList.get(i).getSdate()),
+                                        (mediaList.get(i).getEdate()),mediaList.get(i).getDuration());
 
-                            Boolean insertResponse = mediaDb.insert_data((mediaList.get(i).getSize()),
-                                    (mediaList.get(i).getFormat()),
-                                    (mediaList.get(i).getFilename()),
-                                    (mediaList.get(i).getStime()),
-                                    (mediaList.get(i).getEtime()),
-                                    (mediaList.get(i).getOrder()),
-                                    (mediaList.get(i).getEid()),
-                                    0,
-                                    (mediaList.get(i).getQrcode()),
-                                    (mediaList.get(i).getSdate()),
-                                    (mediaList.get(i).getEdate()));
-
-                            if (insertResponse) {
-                                fileName.add((mediaList.get(i).getFilename()));
-                                fileType.add((mediaList.get(i).getFormat()));
-                                qrUrl.add(mediaList.get(i).getQrcode());
+                                if (insertResponse) {
+                                    fileName.add((mediaList.get(i).getFilename()));
+                                    fileType.add((mediaList.get(i).getFormat()));
+                                    qrUrl.add(mediaList.get(i).getQrcode());
+                                } else {
+                                    mediaDb.update_db_data((mediaList.get(i).getSize()),
+                                            (mediaList.get(i).getFormat()),
+                                            (mediaList.get(i).getFilename()),
+                                            (mediaList.get(i).getStime()),
+                                            (mediaList.get(i).getEtime()),
+                                            (mediaList.get(i).getOrder()),
+                                            (mediaList.get(i).getEid()),
+                                            1,
+                                            (mediaList.get(i).getQrcode()),
+                                            (mediaList.get(i).getSdate()),
+                                            (mediaList.get(i).getEdate()),mediaList.get(i).getDuration());
+                                    mediaDb.updateData(mediaList.get(i).getFilename());
+                                }
+                            } catch (Exception e) {
 
                             }
-                            newMediaDatabase.insert_data((mediaList.get(i).getSize()),
-                                    (mediaList.get(i).getFormat()),
-                                    (mediaList.get(i).getFilename()),
-                                    (mediaList.get(i).getStime()),
-                                    (mediaList.get(i).getEtime()),
-                                    (mediaList.get(i).getOrder()),
-                                    (mediaList.get(i).getEid()),
-                                    1,
-                                    (mediaList.get(i).getQrcode()),
-                                    (mediaList.get(i).getSdate()),
-                                    (mediaList.get(i).getEdate()));
                         }
-
-
                         availableForDownload = fileName.size();
-                        callDownloadMediaFunction(fileName.get(downloadedCount), false);
+
+                        try {
+                            if (checkIfFileExists(Environment.getExternalStorageDirectory()
+                                    + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                                    File.separator + fileName.get(downloadedCount))) {
+                                mediaDb.updateData(fileName.get(downloadedCount));
+                            } else {
+                                if (Utils.isNetworkAvailable(PortraitActivity.this)) {
+                                    callDownloadMediaFunction(fileName.get(downloadedCount),
+                                            false);
+                                    downloadedCount++;
+                                } else {
+                                    Toast.makeText(PortraitActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        } catch (Exception e) {
+
+                        }
                     } else {
-                        Toast.makeText(PortraitActivity.this, "Something went wrong!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PortraitActivity.this, "Please start a campaign first.", Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -507,15 +643,14 @@ public class PortraitActivity extends AppCompatActivity {
             public void onFailure(Call<List<MediaModel>> call, Throwable t) {
                 Log.e("ONFAILURE", t.toString());
                 Toast.makeText(PortraitActivity.this, t + " Something went wrong!", Toast.LENGTH_SHORT).show();
-
             }
         });
     }
 
-    private void generateQR(Integer i) {
+    private void generateQR(String url) {
         MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
         try {
-            BitMatrix bitMatrix = multiFormatWriter.encode(qrUrl.get(i),
+            BitMatrix bitMatrix = multiFormatWriter.encode(url,
                     BarcodeFormat.QR_CODE, 200, 200);
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
@@ -526,7 +661,7 @@ public class PortraitActivity extends AppCompatActivity {
     }
 
     private void setText() {
-        if (j <= 4) {
+        if (j < newsItemList.size()) {
             headingText.setText(newsItemList.get(j).getTitle());
             newsText.setText(newsItemList.get(j).getDescription());
             j++;
@@ -558,11 +693,8 @@ public class PortraitActivity extends AppCompatActivity {
     }
 
     private void deleteFromDownloads(String path) {
-        Uri uri = Uri.parse(Environment.getExternalStorageDirectory()
-                + File.separator + Environment.DIRECTORY_DOWNLOADS +
-                File.separator + path);
 
-        File file = new File(uri.getPath());
+        File file = new File(path);
         file.delete();
         if (file.exists()) {
             try {
@@ -582,10 +714,78 @@ public class PortraitActivity extends AppCompatActivity {
                 File.separator + path);
 
         File file = new File(uri.getPath());
-        if (file.exists()) {
-            return true;
-        }else {
-            return false;
+        return file.exists();
+    }
+
+    private void checkDelete(String path) {
+        Boolean isFound = true;
+        for (int i = 0; i < mediaList.size(); i++) {
+            Uri uri = Uri.parse(Environment.getExternalStorageDirectory()
+                    + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                    File.separator + mediaList.get(i).getFilename());
+            File file = new File(uri.getPath());
+
+            if (path.equals(Environment.getExternalStorageDirectory()
+                    + File.separator + Environment.DIRECTORY_DOWNLOADS +
+                    File.separator + mediaList.get(i).getFilename())) {
+
+            } else {
+                isFound = false;
+            }
+        }
+        if (isFound = false) {
+            deleteFromDownloads(path);
         }
     }
+
+
+    private void deleteTempFolder() {
+        File myDir = new File(Environment.getExternalStorageDirectory()
+                + File.separator + Environment.DIRECTORY_DOWNLOADS);
+        if (myDir.isDirectory()) {
+            String[] children = myDir.list();
+            // Toast.makeText(this, String.valueOf(children.length), Toast.LENGTH_SHORT).show();
+            for (int i = 0; i < children.length; i++) {
+                //  Toast.makeText(this, children[i], Toast.LENGTH_SHORT).show();
+                checkDelete(children[i]);
+            }
+        }
+    }
+
+    private void callMediaPlayApi(String fileName) {
+        ApiService apiService = RetroClient.getApiService();
+        HashMap<String, String> headers = new HashMap<String, String>();
+        headers.put("Content-Type", "application/json");
+        headers.put("apiusername", Constants.API_USER_NAME);
+        headers.put("apipassword", Constants.API_PASSWORD);
+        headers.put("uid", "0");
+        headers.put("scode", "0");
+        headers.put("deviceid", "1");
+
+        Call<SuccessModel> call = apiService.MediaPlay(headers, fileName);
+
+        call.enqueue(new Callback<SuccessModel>() {
+            @Override
+            public void onResponse(Call<SuccessModel> call, Response<SuccessModel> response) {
+                if (response.isSuccessful()) {
+                    Log.d("MediaPlayAPI", "success");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SuccessModel> call, Throwable t) {
+                Log.e("ONFAILURE", t.toString());
+            }
+        });
+    }
+
+    private void handleTextViewVisibility() {
+        if(mediaList.size()==0){
+            newsText.setVisibility(View.GONE);
+            headingText.setVisibility(View.GONE);
+        }
+
+    }
+
+
 }

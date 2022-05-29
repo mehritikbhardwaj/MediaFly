@@ -5,7 +5,6 @@ public class Constants {
     public static final String API_USER_NAME = "a8549930";
     public static final String API_PASSWORD = "Yzc4MnM4YzktNzFmZDA1Mi0zNDg4MzYxLWFmMzM4Ny01MjQzMw==";
 
-    public static final String FOLDER_NAME = "DigiFly";
 
   //  public static final String IMAGE_BASE_PATH = "";
 

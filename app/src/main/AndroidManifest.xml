@@ -23,7 +23,7 @@
         android:theme="@style/Theme.MediaFly">
 
         <activity
-            android:name=".SplashActivity"
+            android:name=".PortraitTvActivity"
             android:screenOrientation="landscape"
             android:exported="true">
             <intent-filter>
@@ -35,8 +35,10 @@
 
         <activity android:name=".MainActivity"
             android:screenOrientation="landscape"/>
+
         <activity android:name=".login.LoginActivity"
             android:screenOrientation="landscape" />
+
         <activity android:name=".PortraitActivity"
             android:screenOrientation="landscape"/>
 
