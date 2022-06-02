@@ -7,7 +7,7 @@ public class AppInfoModel {
 
     @SerializedName("IsValidDevice")
     @Expose
-    private Integer IsValidDevice;
+    private String IsValidDevice;
 
     @SerializedName("version")
     @Expose
@@ -17,11 +17,11 @@ public class AppInfoModel {
     @Expose
     private String link;
 
-    public Integer getIsValidDevice() {
+    public String getIsValidDevice() {
         return IsValidDevice;
     }
 
-    public void setIsValidDevice(Integer isValidDevice) {
+    public void setIsValidDevice(String isValidDevice) {
         IsValidDevice = isValidDevice;
     }
 

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="match_parent">
 
 
     <VideoView
@@ -34,30 +34,28 @@
         android:layout_gravity="center"
         android:elevation="@dimen/_5sdp"
         android:layout_margin="@dimen/_5sdp"
-        app:layout_constraintBottom_toTopOf="@+id/textView2"
+        app:layout_constraintBottom_toTopOf="@+id/headingText"
         app:layout_constraintEnd_toEndOf="parent" />
 
 
     <TextView
-        android:id="@+id/textView2"
+        android:id="@+id/headingText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#F44336"
         android:gravity="top"
-        android:visibility="gone"
+        android:text="Updates"
         android:paddingLeft="@dimen/_5sdp"
         android:paddingRight="@dimen/_5sdp"
-        android:text="UPDATES"
         android:textColor="@color/white"
         android:textSize="@dimen/_15ssp"
-        app:layout_constraintBottom_toTopOf="@id/textView" />
+        app:layout_constraintBottom_toTopOf="@id/newsText" />
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/newsText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#FFEB3B"
-        android:visibility="gone"
         android:elevation="@dimen/_5sdp"
         android:maxLength="100"
         android:maxLines="2"

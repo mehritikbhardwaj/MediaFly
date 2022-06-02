@@ -3,17 +3,14 @@ package com.app.mediafly.common;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.app.mediafly.BuildConfig;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
-import java.lang.reflect.Type;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -23,6 +20,7 @@ public class Utilities {
     public static final String LOG_TAG = Utilities.class.getSimpleName();
 
     public static final String CURRENT_SCREEN_PREFERENCE = "pref";
+
 
     public static int versionCode = BuildConfig.VERSION_CODE;
 
@@ -52,27 +50,6 @@ public class Utilities {
         return sharedPreferences.getString(key, "");
     }
 
-    public static void saveListInPreference(Context cxt,ArrayList<String>list,String prefName,String key){
-        Gson gson = new Gson();
-        String jsonString = gson.toJson(list);
-
-        SharedPreferences.Editor editor = getPrefsEditor(cxt, prefName);
-        editor.putString(key,jsonString);
-        editor.apply();
-    }
-
-    public static ArrayList<String> getList(Context cxt, String prefName, String key){
-        SharedPreferences sharedPreferences = cxt.getSharedPreferences(prefName,
-                Context.MODE_PRIVATE);
-
-        String jsonString =sharedPreferences.getString(key,"");
-        Gson gson = new Gson();
-
-        Type type = new TypeToken<ArrayList<String>>(){}.getType();
-        ArrayList<String> list = gson.fromJson(jsonString,type);
-        return list;
-    }
-
     public static void saveIntPreference(Context cxt,
                                          String key,
                                          int value,
@@ -82,7 +59,6 @@ public class Utilities {
         editor.apply();
     }
 
-
     public static int getIntPreference(Context cxt,
                                        String key,
                                        String prefName) {
@@ -91,6 +67,10 @@ public class Utilities {
         return sharedPreferences.getInt(key, -1);
     }
 
+    public static boolean isValidEmail(String email) {
+        return !TextUtils.isEmpty(email) && android.util.Patterns
+                .EMAIL_ADDRESS.matcher(email).matches();
+    }
 
     public static String getAndroidId(Context context) {
         String android_id = Settings.Secure.getString(context.getContentResolver(),
@@ -134,7 +114,7 @@ public class Utilities {
         return retVal;
     }*/
 
-    public static String getCurrentDatenew(){
+    public static String getCurrentDatenew() {
         String date = new SimpleDateFormat("dd MMM", Locale.ENGLISH).format(new Date());
         return date;
     }
@@ -165,4 +145,5 @@ public class Utilities {
         } catch (Exception ignored) { } // for now eat exceptions
         return "";
     }
+
 }

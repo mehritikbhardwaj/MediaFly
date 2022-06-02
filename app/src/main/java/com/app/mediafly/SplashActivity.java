@@ -67,12 +67,10 @@ public class SplashActivity extends AppCompatActivity {
         }
     }
 
-
-
     private void callNextScreen(){
         if (Utilities.getStringPref(this, Constants.IS_LOGGED_IN, Constants.PREF_NAME).equals("YES")) {
             if (Utilities.getStringPref(this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
-                Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
+                Intent intent = new Intent(getApplicationContext(), PortraitTvActivity.class);
                 startActivity(intent);
                 finish();
             } else {

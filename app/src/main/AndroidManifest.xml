@@ -23,7 +23,7 @@
         android:theme="@style/Theme.MediaFly">
 
         <activity
-            android:name=".PortraitTvActivity"
+            android:name=".SplashActivity"
             android:screenOrientation="landscape"
             android:exported="true">
             <intent-filter>
@@ -39,8 +39,20 @@
         <activity android:name=".login.LoginActivity"
             android:screenOrientation="landscape" />
 
-        <activity android:name=".PortraitActivity"
+        <activity android:name=".PortraitTvActivity"
             android:screenOrientation="landscape"/>
+
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+
 
     </application>
 

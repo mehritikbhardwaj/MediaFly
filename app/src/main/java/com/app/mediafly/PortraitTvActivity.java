@@ -2,10 +2,11 @@ package com.app.mediafly;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -17,14 +18,19 @@ import android.widget.ImageView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 
 import com.app.mediafly.common.Constants;
+import com.app.mediafly.common.MediaCountDownTimer;
+import com.app.mediafly.common.NewsCountDownTimer;
 import com.app.mediafly.common.SuccessModel;
 import com.app.mediafly.common.Utilities;
 import com.app.mediafly.common.Utils;
 import com.app.mediafly.common.VerticalTextView;
 import com.app.mediafly.database.mediaDatabase;
+import com.app.mediafly.login.LoginActivity;
 import com.app.mediafly.retrofit.ApiService;
 import com.app.mediafly.retrofit.RetroClient;
 import com.google.zxing.BarcodeFormat;
@@ -48,7 +54,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class PortraitTvActivity extends AppCompatActivity {
+public class PortraitTvActivity extends AppCompatActivity implements NewsCountDownTimer.ICompleteTimerListener, MediaCountDownTimer.ICompleteMediaTimerListener {
 
     mediaDatabase mediaDb;
     List<NewsModel> newsList = new ArrayList<>();
@@ -67,26 +73,31 @@ public class PortraitTvActivity extends AppCompatActivity {
     VideoView videoView;
     VerticalTextView headingText, newsText;
 
-    Integer j = 0, i = 0;
+    Integer j = 0, i = 0, mediaPlay = 0;
 
+    NewsCountDownTimer newsCountDownTimer;
+    MediaCountDownTimer mediaCountDownTimer;
     Handler handler = new Handler();
     Runnable runnable;
-    int delay = 1000 * 60*60;
+    int delay = 1000 * 60 *60;
 
     @Override
     protected void onResume() {
+        newsCountDownTimer = new NewsCountDownTimer(10000, 1000, this);
+        newsCountDownTimer.start();
         handler.postDelayed(runnable = () -> {
             handler.postDelayed(runnable, delay);
-            setText();
             if (Utils.isNetworkAvailable(this)) {
                 callGetMediaListApi();
-            } else {
-                Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             }
         }, delay);
+        if (Utils.isNetworkAvailable(this)) {
+            callAppInfoApi();
+        }
         super.onResume();
-        checkConditions();
-
+        if (!videoView.isPlaying()) {
+            checkConditions(false);
+        }
     }
 
     @Override
@@ -96,35 +107,62 @@ public class PortraitTvActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mediaDb = new mediaDatabase(this);
+
         declareUiThings();
 
+    /*    Log.d("orientation", Utilities.getStringPref(this, Constants.ORIENTATION, Constants.PREF_NAME));
+        Log.d("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
+        Log.d("loged", Utilities.getStringPref(this, Constants.IS_LOGGED_IN, Constants.PREF_NAME));
+*/
+        hideNewsSection();
 
         if (Utils.isNetworkAvailable(this)) {
-            callGetNewsListApi();
+            checkConditions(false);
+            callCheckShowNewsStatusApi();
             callGetMediaListApi();
+            handler = new Handler();
+            handler.postDelayed(() -> {
+                if (!pendingFilesList.isEmpty()) {
+                    if (Utils.isNetworkAvailable(this)) {
+                        callDownloadMediaFunction(pendingFilesList.get(0), false);
+                    }
+                }
+            }, 1000 * 15);
         } else {
             Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
-            headingText.setVisibility(View.GONE);
-            newsText.setVisibility(View.GONE);
+            hideNewsSection();
+            checkConditions(false);
         }
 
+        videoView.setOnCompletionListener(mediaPlayer -> checkConditions(false));
 
-        videoView.setOnCompletionListener(mediaPlayer -> {
-            checkConditions();
-        });
-
-        videoView.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-            @Override
-            public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
-                Log.d("playError","error");
-                checkConditions();
-                return true;
-            }
+        videoView.setOnErrorListener((mediaPlayer, i, i1) -> {
+            Log.d("playError", "error");
+            checkConditions(false);
+            return true;
         });
     }
 
+    private void updateApp(String path, Uri uri) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            Uri contentUri = FileProvider.getUriForFile(this, "com.app.mediafly.provider", new File(path));
+            Intent install = new Intent("android.intent.action.VIEW");
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            install.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            install.putExtra("android.intent.extra.NOT_UNKNOWN_SOURCE", true);
+            install.setData(contentUri);
+            this.startActivity(install);
+        } else {
+            Intent installx = new Intent("android.intent.action.VIEW");
+            installx.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            installx.setDataAndType(uri, "\"application/vnd.android.package-archive\"");
+            this.startActivity(installx);
+        }
 
-    private void checkConditions() {
+    }
+
+    private void checkConditions(boolean comingafterapi) {
+        Log.d("checkcond","true");
         clearMediaData();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
@@ -144,25 +182,55 @@ public class PortraitTvActivity extends AppCompatActivity {
             qrUrl = mediaDb.getDownloadedFileList("actionUrl");
             mediaDuration = mediaDb.getDownloadedFileList("duration");
 
-
-             if (allFilesList.size() == downloadedFilesList.size()) {
-                 for(int i = 0;i<downloadedFilesList.size();i++){
-                     if(!checkIfFileExists(downloadedFilesList.get(i))){
-                         pendingFilesList.add(downloadedFilesList.get(i));
-                     }
-                 }
-                playGraphics();
+            if (allFilesList.size() == downloadedFilesList.size()) {
+                for (int i = 0; i < downloadedFilesList.size(); i++) {
+                    if (!checkIfFileExists(downloadedFilesList.get(i))) {
+                        pendingFilesList.add(downloadedFilesList.get(i));
+                        downloadedFilesList.remove(downloadedFilesList.get(i));
+                        fileType.remove(fileType.get(i));
+                        qrUrl.remove(qrUrl.get(i));
+                        mediaDuration.remove(mediaDuration.get(i));
+                    }
+                }
+                if (!pendingFilesList.isEmpty()) {
+                    playFromRaw();
+                    if(comingafterapi){
+                            if (Utils.isNetworkAvailable(this)) {
+                                callDownloadMediaFunction(pendingFilesList.get(0), false);
+                        }
+                    }
+                } else playGraphics();
             } else {
                 if (!downloadedFilesList.isEmpty()) {
-                    playGraphics();
+                    for (int i = 0; i < downloadedFilesList.size(); i++) {
+                        if (!checkIfFileExists(downloadedFilesList.get(i))) {
+                            pendingFilesList.add(downloadedFilesList.get(i));
+                            downloadedFilesList.remove(downloadedFilesList.get(i));
+                            fileType.remove(fileType.get(i));
+                            qrUrl.remove(qrUrl.get(i));
+                            mediaDuration.remove(mediaDuration.get(i));
+                        }
+                    }
+                    if (!pendingFilesList.isEmpty()) {
+                        playFromRaw();
+                    } else playGraphics();
                 } else {
                     playFromRaw();
                 }
+
                 if (!pendingFilesList.isEmpty()) {
                     if (checkIfFileExists(pendingFilesList.get(0))) {
                         mediaDb.updateData(pendingFilesList.get(0));
-                        checkConditions();
-                    } else callDownloadMediaFunction(pendingFilesList.get(0));
+                        checkConditions(false);
+                    }
+                }
+
+                if(comingafterapi){
+                    if (!pendingFilesList.isEmpty()) {
+                        if (Utils.isNetworkAvailable(this)) {
+                            callDownloadMediaFunction(pendingFilesList.get(0), false);
+                        }
+                    }
                 }
             }
         }
@@ -175,19 +243,17 @@ public class PortraitTvActivity extends AppCompatActivity {
         } else {
             i = 0;
         }
+
         String type = fileType.get(i);
         String path = downloadedFilesList.get(i);
         String duration = mediaDuration.get(i);
 
         String qr = qrUrl.get(i);
         if (Utils.isNetworkAvailable(PortraitTvActivity.this)) {
-            callMediaPlayApi(downloadedFilesList.get(i));
-        } else {
+            if (!downloadedFilesList.isEmpty())
+                callMediaPlayApi(downloadedFilesList.get(i));
         }
-        i++;
-
         if (type.equals("Video")) {
-
             imageView.setVisibility(View.GONE);
             videoView.setVisibility(View.VISIBLE);
             generateQR(qr);
@@ -196,7 +262,7 @@ public class PortraitTvActivity extends AppCompatActivity {
                         + File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + path));
                 videoView.start();
             } catch (Exception e) {
-                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         } else {
             videoView.setVisibility(View.GONE);
@@ -208,11 +274,31 @@ public class PortraitTvActivity extends AppCompatActivity {
                         File.separator + path);
                 imageView.setImageURI(uri);
             } catch (Exception e) {
-                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-            handler.postDelayed(() -> playGraphics(), Integer.parseInt(duration));
 
+            int dur = 0;
+            if (duration.equals("0")) {
+                dur = 10 * 1000;
+            } else {
+                dur = 1000 * Integer.parseInt(duration);
+            }
+
+            int finalDur = dur;
+            mediaCountDownTimer = new MediaCountDownTimer(finalDur,1000,this);
+            mediaCountDownTimer.start();
+           // handler.postDelayed(this::checkConditions, finalDur);
         }
+        if (mediaPlay == 20) {
+            if (Utils.isNetworkAvailable(PortraitTvActivity.this)) {
+                  callAppInfoApi();
+                callCheckShowNewsStatusApi();
+            }
+        }
+
+        mediaPlay++;
+        i++;
+
     }
 
 
@@ -260,7 +346,6 @@ public class PortraitTvActivity extends AppCompatActivity {
         }
     }
 
-
     //Generate qr hard codely
     private void generateQR() {
         MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
@@ -279,14 +364,13 @@ public class PortraitTvActivity extends AppCompatActivity {
     private void callGetNewsListApi() {
         ApiService apiService = RetroClient.getApiService();
 
-        HashMap<String, String> headers = new HashMap<String, String>();
+        HashMap<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
         headers.put("apiusername", Constants.API_USER_NAME);
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "8");
-        //   headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
 
         Call<List<NewsModel>> call = apiService.GetNews(headers, Utilities.getIPAddress(true));
 
@@ -302,7 +386,7 @@ public class PortraitTvActivity extends AppCompatActivity {
                         }
                         setText();
                     } else {
-                        Toast.makeText(PortraitTvActivity.this, "Something went wrong!", Toast.LENGTH_SHORT).show();
+                        //    Toast.makeText(PortraitTvActivity.this, "Something went wrong!", Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -356,30 +440,68 @@ public class PortraitTvActivity extends AppCompatActivity {
 
 
     //download file
-    private void callDownloadMediaFunction(String fileName) {
+    private void callDownloadMediaFunction(String fileName, Boolean isComingForApk) {
         mProgressDialog = new ProgressDialog(this);
-        mProgressDialog.setMessage("Downloading Resources");
-        mProgressDialog.setIndeterminate(true);
-        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        mProgressDialog.setCancelable(true);
+        if (isComingForApk) {
+            mProgressDialog.setMessage("Downloading Latest APK");
+            mProgressDialog.setIndeterminate(true);
+            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            mProgressDialog.setCancelable(true);
+        } else {
+            mProgressDialog.setMessage("Downloading Resources");
+            mProgressDialog.setIndeterminate(true);
+            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            mProgressDialog.setCancelable(true);
+        }
+
+        if (isComingForApk) {
+            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Mediafly.apk", true);
+            try {
+                downloadTask.execute(fileName);
+            } catch (Exception e) {
+                downloadTask.cancel(true);
+            }
+
+        } else {
+            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask(fileName, false);
+            try {
+                downloadTask.execute(Constants.BASE_URL + fileName);
+            } catch (Exception e) {
+                downloadTask.cancel(true);
+            }
+        }
         // execute this when the downloader must be fired
-        final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask(this, fileName);
-        downloadTask.execute(Constants.BASE_URL + fileName);
+
 
         mProgressDialog.setOnCancelListener(dialog -> {
-            downloadTask.cancel(true); //cancel the task
+            //downloadTask.cancel(true); //cancel the task
         });
+    }
+
+    @Override
+    public void onCompleteTimer(@NonNull String action) {
+        setText();
+        Log.d("resumenews", "yes");
+        newsCountDownTimer.start();
+    }
+
+    @Override
+    public void onCompleteMediaTimer(@NonNull String action) {
+             // callAppInfoApi();
+            checkConditions(true);
+            Log.d("resumecontent", "yes");
+
     }
 
     private class DownloadTask extends AsyncTask<String, Integer, String> {
 
-        private final Context context;
-        private String fileName = "";
+        private final String fileName;
+        private final Boolean isComingForApk;
         private PowerManager.WakeLock mWakeLock;
 
-        public DownloadTask(Context context, String fileName) {
-            this.context = context;
+        public DownloadTask(String fileName, Boolean isComingForApk) {
             this.fileName = fileName;
+            this.isComingForApk = isComingForApk;
         }
 
         @Override
@@ -402,9 +524,15 @@ public class PortraitTvActivity extends AppCompatActivity {
                 // this will be useful to display download percentage
                 // might be -1: server did not report the length
                 int fileLength = connection.getContentLength();
+                String path = "";
+                if (isComingForApk) {
+                    path = Environment.getExternalStorageDirectory() +
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                } else {
+                    path = Environment.getExternalStorageDirectory() +
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
+                }
 
-                String path = Environment.getExternalStorageDirectory() +
-                        File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
                 // download the file
                 input = connection.getInputStream();
                 output = new FileOutputStream(path);
@@ -450,30 +578,43 @@ public class PortraitTvActivity extends AppCompatActivity {
             mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                     getClass().getName());
             mWakeLock.acquire();
+
             mProgressDialog.show();
+
         }
 
         @Override
         protected void onProgressUpdate(Integer... progress) {
             super.onProgressUpdate(progress);
-            // if we get here, length is known, now set indeterminate to false
             mProgressDialog.setIndeterminate(false);
             mProgressDialog.setMax(100);
             mProgressDialog.setProgress(progress[0]);
+            // if we get here, length is known, now set indeterminate to false
         }
 
         @Override
         protected void onPostExecute(String result) {
             mWakeLock.release();
             mProgressDialog.dismiss();
-
             if (result != null) {
-                Toast.makeText(PortraitTvActivity.this, "Download error: " + result, Toast.LENGTH_LONG).show();
+                //    Toast.makeText(PortraitTvActivity.this, "Download error: " + result, Toast.LENGTH_LONG).show();
                 Log.d("Download Error", result);
             } else {
-                Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
-                mediaDb.updateData(fileName);
-                checkConditions();
+                //    Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
+                if (isComingForApk) {
+                    String destination = Environment.getExternalStorageDirectory() +
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                    Uri uri = Uri.parse("file://" + destination);
+
+                    updateApp(destination, uri);
+                } else {
+                    mediaDb.updateData(fileName);
+                    checkConditions(false);
+                    if (!pendingFilesList.isEmpty()) {
+                        callDownloadMediaFunction(pendingFilesList.get(0), false);
+                    }
+                }
+
             }
         }
     }
@@ -488,10 +629,7 @@ public class PortraitTvActivity extends AppCompatActivity {
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "8");
-
-        //  headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
-
+        headers.put("deviceid", (Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME)));
 
         Call<List<MediaModel>> call = apiService.GetMedia(headers, Utilities.getIPAddress(true));
 
@@ -502,15 +640,15 @@ public class PortraitTvActivity extends AppCompatActivity {
                     mediaList = response.body();
                     if (!mediaList.isEmpty()) {
 
-                        Log.d("hitMediaApi","API HIT");
-                        if(!allFilesList.isEmpty()){
+                        Log.d("hitMediaApi", "API HIT");
+                        if (!allFilesList.isEmpty()) {
                             playFromRaw();
-                            for(int i =0;i<allFilesList.size();i++){
-                                if(checkIfFileExists(allFilesList.get(i))){
+                            for (int i = 0; i < allFilesList.size(); i++) {
+                                if (checkIfFileExists(allFilesList.get(i))) {
                                     deleteFromDownloads(allFilesList.get(i));
                                 }
                             }
-                        }
+                        } else playFromRaw();
                         clearMediaData();
                         mediaDb.clearDatabase();
 
@@ -532,7 +670,7 @@ public class PortraitTvActivity extends AppCompatActivity {
                                 e.printStackTrace();
                             }
                         }
-                        checkConditions();
+                        checkConditions(false);
                     }
                 } else {
                     Toast.makeText(PortraitTvActivity.this, "Please start a campaign first.", Toast.LENGTH_SHORT).show();
@@ -556,7 +694,7 @@ public class PortraitTvActivity extends AppCompatActivity {
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "8");
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
 
         Call<SuccessModel> call = apiService.MediaPlay(headers, fileName);
 
@@ -574,5 +712,118 @@ public class PortraitTvActivity extends AppCompatActivity {
             }
         });
     }
+
+    private void callCheckShowNewsStatusApi() {
+        ApiService apiService = RetroClient.getApiService();
+        HashMap<String, String> headers = new HashMap<String, String>();
+        headers.put("Content-Type", "application/json");
+        headers.put("apiusername", Constants.API_USER_NAME);
+        headers.put("apipassword", Constants.API_PASSWORD);
+        headers.put("uid", "0");
+        headers.put("scode", "0");
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
+
+        Call<SuccessModel> call = apiService.CheckShowNewsStatus(headers);
+
+        call.enqueue(new Callback<SuccessModel>() {
+            @Override
+            public void onResponse(Call<SuccessModel> call, Response<SuccessModel> response) {
+                if (response.isSuccessful()) {
+
+                    SuccessModel model = response.body();
+
+                    if (model.getStatus().equalsIgnoreCase("true")) {
+                        showNewsSection();
+                        callGetNewsListApi();
+                    } else {
+                        hideNewsSection();
+                    }
+                    Log.d("MediaPlayAPI", "success");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SuccessModel> call, Throwable t) {
+                Log.e("ONFAILURE", t.toString());
+            }
+        });
+    }
+
+    private void hideNewsSection() {
+        headingText.setVisibility(View.GONE);
+        newsText.setVisibility(View.GONE);
+    }
+
+    private void showNewsSection() {
+        headingText.setVisibility(View.VISIBLE);
+        newsText.setVisibility(View.VISIBLE);
+    }
+
+    private void callAppInfoApi() {
+        ApiService apiService = RetroClient.getApiService();
+
+        HashMap<String, String> headers = new HashMap<String, String>();
+        headers.put("Content-Type", "application/json");
+        headers.put("apiusername", Constants.API_USER_NAME);
+        headers.put("apipassword", Constants.API_PASSWORD);
+        headers.put("uid", "0");
+        headers.put("scode", "0");
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
+
+
+        Call<AppInfoModel> call = apiService.AppInfoAndValidate(headers, Utilities.getAndroidId(this), Utilities.getIPAddress(true));
+
+        call.enqueue(new Callback<AppInfoModel>() {
+            @Override
+            public void onResponse(Call<AppInfoModel> call, Response<AppInfoModel> response) {
+
+                if (response.isSuccessful()) {
+                    AppInfoModel model = response.body();
+
+                    Log.d("validversion", model.getIsValidDevice());
+                    Log.d("version", model.getVersion().toString());
+                    if (model.getIsValidDevice().equals("false")) {
+                        Utilities.setStringPreference(PortraitTvActivity.this, Constants.IS_LOGGED_IN,
+                                "NO", Constants.PREF_NAME);
+
+                        mediaCountDownTimer.cancel();
+                        Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        if (!model.getVersion().toString().equals(Utilities.getStringPref(PortraitTvActivity.this, Constants.APP_VERSION, Constants.PREF_NAME))) {
+                            Toast.makeText(PortraitTvActivity.this, "Update Available", Toast.LENGTH_SHORT).show();
+
+                            Utilities.setStringPreference(getApplicationContext(), Constants.APP_VERSION,
+                                    String.valueOf(model.getVersion()), Constants.PREF_NAME);
+
+                            String destination = Environment.getExternalStorageDirectory() +
+                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+
+                            String url = model.getLink();
+                            File file = new File(destination);
+                            if (file.exists()) {
+                                deleteFromDownloads("Mediafly.apk");
+                            }
+
+                            callDownloadMediaFunction(url, true);
+                        }
+                    }
+
+                } else {
+                    Toast.makeText(PortraitTvActivity.this,
+                            "Something went wrong!",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AppInfoModel> call, Throwable t) {
+                Log.e("ONFAILURE", t.toString());
+             //   Toast.makeText(PortraitTvActivity.this, t.toString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
 
 }

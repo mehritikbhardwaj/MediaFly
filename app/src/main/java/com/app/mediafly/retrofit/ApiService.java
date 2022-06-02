@@ -37,6 +37,10 @@ public interface ApiService {
     Call<SuccessModel> MediaPlay(@HeaderMap Map<String, String> headers,
                                  @Query("mid") String mid);
 
+
+    @GET("CheckShowNewsStatus")
+    Call<SuccessModel> CheckShowNewsStatus(@HeaderMap Map<String, String> headers);
+
     @GET("GetNews")
     Call<List<NewsModel>> GetNews(@HeaderMap Map<String, String> headers,
                                   @Query("ip") String ip);

@@ -1,7 +1,7 @@
 package com.app.mediafly.login;
 
-import android.app.DownloadManager;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,7 +12,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.app.mediafly.MainActivity;
-import com.app.mediafly.PortraitActivity;
+import com.app.mediafly.PortraitTvActivity;
 import com.app.mediafly.R;
 import com.app.mediafly.common.Constants;
 import com.app.mediafly.common.Utilities;
@@ -28,6 +28,7 @@ import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
     Button btn_login;
+    Context mContext;
     ProgressDialog pd;
     EditText et_email, et_password;
     LoginResponseModel model = new LoginResponseModel();
@@ -37,17 +38,17 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        mContext = this;
         btn_login = findViewById(R.id.btn_login);
         et_email = findViewById(R.id.et_email);
         et_password = findViewById(R.id.et_password);
         pd = new ProgressDialog(this);
         pd.setCancelable(false);
-        et_email.setText(Utilities.getAndroidId(this));
 
 
         btn_login.setOnClickListener(view -> {
-            if (et_email.getText().length() == 0 || et_password.getText().length() == 0) {
-                Toast.makeText(this, "Please enter id and password.", Toast.LENGTH_SHORT).show();
+            if (et_password.getText().length() == 0) {
+                Toast.makeText(this, "Please enterpassword.", Toast.LENGTH_SHORT).show();
             } else {
                 if (Utils.isNetworkAvailable(this)) {
                     callLoginApi();
@@ -69,12 +70,12 @@ public class LoginActivity extends AppCompatActivity {
         headers.put("apipassword", Constants.API_PASSWORD);
         headers.put("uid", "0");
         headers.put("scode", "0");
-        headers.put("deviceid", "0");
+        headers.put("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
 
         LoginRequestModel requestModel = new LoginRequestModel();
         requestModel.setIp(Utilities.getIPAddress(true));
-        requestModel.setDevice_serial("sample string 1");
-        requestModel.setKey("AX7909");
+        requestModel.setDevice_serial( Utilities.getAndroidId(this));
+        requestModel.setKey(et_password.getText().toString());
 
         Call<LoginResponseModel> call = apiService.Login(headers, requestModel);
 
@@ -88,32 +89,29 @@ public class LoginActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     model = response.body();
 
-                    //   Toast.makeText(LoginActivity.this, model.getStore() + "", Toast.LENGTH_SHORT).show();
-
-
-                    Utilities.setStringPreference(LoginActivity.this, Constants.IS_LOGGED_IN,
+                    Utilities.setStringPreference(mContext, Constants.IS_LOGGED_IN,
                             "YES", Constants.PREF_NAME);
 
-                    Utilities.setStringPreference(LoginActivity.this, Constants.DEVICE_ID,
-                            model.getDeviceid().toString(), Constants.PREF_NAME);
+
+                    Utilities.setStringPreference(mContext, Constants.ORIENTATION, model.getOrientation(),
+                            Constants.PREF_NAME);
+
+                    Utilities.setStringPreference(mContext, Constants.DEVICE_ID,
+                            String.valueOf(model.getDeviceid()), Constants.PREF_NAME);
 
 
-                    //Toast.makeText(LoginActivity.this, model.getDeviceid().toString(), Toast.LENGTH_SHORT).show();
-                    Utilities.setStringPreference(LoginActivity.this, Constants.STORE_NAME,
-                            model.getStore(), Constants.PREF_NAME);
 
-                    Utilities.setStringPreference(LoginActivity.this, Constants.COMPANY_NAME,
-                            model.getCompany(), Constants.PREF_NAME);
 
-                    Utilities.setStringPreference(LoginActivity.this, Constants.ORIENTATION,
-                            model.getOrientation(), Constants.PREF_NAME);
+                    String DeviceId = String.valueOf(model.getDeviceid());
 
-                    if (Utilities.getStringPref(LoginActivity.this, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
-                        Intent intent = new Intent(getApplicationContext(), PortraitActivity.class);
+                    if (Utilities.getStringPref(mContext, Constants.ORIENTATION, Constants.PREF_NAME).equals("Portrait")) {
+                        Intent intent = new Intent(getApplicationContext(), PortraitTvActivity.class);
+                        intent.putExtra("deviceid",DeviceId);
                         startActivity(intent);
                         finish();
                     } else {
                         Intent intent1 = new Intent(getApplicationContext(), MainActivity.class);
+                        intent1.putExtra("deviceid",DeviceId);
                         startActivity(intent1);
                         finish();
                     }
