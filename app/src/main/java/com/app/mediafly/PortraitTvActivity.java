@@ -80,7 +80,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
     MediaCountDownTimer mediaCountDownTimer;
     Handler handler = new Handler();
     Runnable runnable;
-    int delay = 1000 * 60 * 5;
+    int delay = 1000 * 60 * 60;
 
     @Override
     protected void onResume() {
@@ -165,7 +165,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         clearMediaData();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
-            generateQR();
+//            generateQR();
             if (Utils.isNetworkAvailable(PortraitTvActivity.this)) {
                 callGetMediaListApi();
             } else {
@@ -176,10 +176,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             clearMediaData();
 
             allFilesList = mediaDb.getList("fileName");
-/*
-            if (!allFilesList.isEmpty()){
-                deleteRemovedFiles();
-            }*/
 
             Log.d("allfilesize", String.valueOf(allFilesList.size()));
             for (int i = 0; i < allFilesList.size(); i++) {
@@ -248,13 +244,12 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         callDownloadMediaFunction(pendingFilesList.get(0), false);
                     }
                 }
-
             }
 
-            Log.d("pendingsize", String.valueOf(pendingFilesList.size()));
+          /*  Log.d("pendingsize", String.valueOf(pendingFilesList.size()));
             Log.d("allsize", String.valueOf(allFilesList.size()));
             Log.d("downloadsize", String.valueOf(downloadedFilesList.size()));
-
+*/
             if (pendingFilesList.isEmpty()) {
                 playGraphics();
             } else playFromRaw();
@@ -338,7 +333,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
     }
 
     private void playFromRaw() {
-        String path = "android.resource://" + getPackageName() + "/" + R.raw.max_video;
+        String path = "android.resource://" + getPackageName() + "/" + "raw/" + "max_video.mp4";
         videoView.setVideoURI(Uri.parse(path));
         videoView.start();
     }
@@ -399,7 +394,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         }
 
     }
-
 
     //Generate qr hard codely
     private void generateQR() {
@@ -853,14 +847,16 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
 
                 if (response.isSuccessful()) {
                     AppInfoModel model = response.body();
-
+/*
                     Log.d("validversion", model.getIsValidDevice());
-                    Log.d("version", model.getVersion().toString());
+                    Log.d("version", model.getVersion().toString());*/
+
                     if (model.getIsValidDevice().equals("false")) {
                         Utilities.setStringPreference(PortraitTvActivity.this, Constants.IS_LOGGED_IN,
                                 "NO", Constants.PREF_NAME);
 
                         mediaCountDownTimer.cancel();
+                        newsCountDownTimer.cancel();
                         Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
                         startActivity(intent);
                         finish();

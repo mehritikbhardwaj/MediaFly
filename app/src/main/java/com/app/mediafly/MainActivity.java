@@ -77,15 +77,15 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
 
     Handler handler = new Handler();
 
-
+    Boolean isDownloading = false;
     NewsCountDownTimer newsCountDownTimer;
     MediaCountDownTimer mediaCountDownTimer;
     Runnable runnable;
-    int delay = 1000 * 60*60;
+    int delay = 1000 * 60 * 60;
 
     @Override
     protected void onResume() {
-        newsCountDownTimer = new NewsCountDownTimer(10000, 1000, this);
+        newsCountDownTimer = new NewsCountDownTimer(5000, 1000, this);
         newsCountDownTimer.start();
         handler.postDelayed(runnable = () -> {
             handler.postDelayed(runnable, delay);
@@ -93,12 +93,13 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 callGetMediaListApi();
             }
         }, delay);
+
         if (Utils.isNetworkAvailable(this)) {
             callAppInfoApi();
         }
         super.onResume();
         if (!videoView.isPlaying()) {
-            checkConditions(false);
+            checkConditions();
         }
     }
 
@@ -119,8 +120,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         hideNewsSection();
 
         if (Utils.isNetworkAvailable(this)) {
-            playFromRaw();
-            //  checkConditions(false);
+            checkConditions();
             callCheckShowNewsStatusApi();
             handler = new Handler();
             handler.postDelayed(() -> {
@@ -131,14 +131,14 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         } else {
             Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             hideNewsSection();
-            checkConditions(false);
+            checkConditions();
         }
 
-        videoView.setOnCompletionListener(mediaPlayer -> checkConditions(false));
+        videoView.setOnCompletionListener(mediaPlayer -> checkConditions());
 
         videoView.setOnErrorListener((mediaPlayer, i, i1) -> {
             Log.d("playError", "error");
-            checkConditions(false);
+            checkConditions();
             return true;
         });
     }
@@ -158,24 +158,33 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             installx.setDataAndType(uri, "\"application/vnd.android.package-archive\"");
             this.startActivity(installx);
         }
-
     }
 
-    private void checkConditions(boolean comingafterapi) {
-        Log.d("checkcond","true");
+    private void checkConditions() {
+        Log.d("checkcond", "true");
         clearMediaData();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
-            generateQR();
+//            generateQR();
             if (Utils.isNetworkAvailable(MainActivity.this)) {
                 callGetMediaListApi();
             } else {
                 Toast.makeText(MainActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             }
         } else {
+
             clearMediaData();
 
             allFilesList = mediaDb.getList("fileName");
+
+            Log.d("allfilesize", String.valueOf(allFilesList.size()));
+            for (int i = 0; i < allFilesList.size(); i++) {
+                if (checkIfFileExists(allFilesList.get(i))) {
+                    mediaDb.updateData(allFilesList.get(i));
+                }
+            }
+
+
             downloadedFilesList = mediaDb.getDownloadedFileList("fileName");
             fileType = mediaDb.getDownloadedFileList("format");
             pendingFilesList = mediaDb.getPendingFileNames();
@@ -192,14 +201,20 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                         mediaDuration.remove(mediaDuration.get(i));
                     }
                 }
+
                 if (!pendingFilesList.isEmpty()) {
-                    playFromRaw();
-                    if(comingafterapi){
-                        if (Utils.isNetworkAvailable(this)) {
-                            callDownloadMediaFunction(pendingFilesList.get(0), false);
+                    if (Utils.isNetworkAvailable(this)) {
+                        for (int i = 0; i < pendingFilesList.size(); i++) {
+                            if (!checkIfFileExists(pendingFilesList.get(i))) {
+                                if (!isDownloading) {
+                                    callDownloadMediaFunction(pendingFilesList.get(0), false);
+                                }
+                            } else {
+                                mediaDb.updateData(pendingFilesList.get(i));
+                            }
                         }
                     }
-                } else playGraphics();
+                }
             } else {
                 if (!downloadedFilesList.isEmpty()) {
                     for (int i = 0; i < downloadedFilesList.size(); i++) {
@@ -211,28 +226,33 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                             mediaDuration.remove(mediaDuration.get(i));
                         }
                     }
-                    if (!pendingFilesList.isEmpty()) {
-                        playFromRaw();
-                    } else playGraphics();
-                } else {
-                    playFromRaw();
-                }
 
-                if (!pendingFilesList.isEmpty()) {
-                    if (checkIfFileExists(pendingFilesList.get(0))) {
-                        mediaDb.updateData(pendingFilesList.get(0));
-                        checkConditions(false);
-                    }
-                }
-
-                if(comingafterapi){
                     if (!pendingFilesList.isEmpty()) {
-                        if (Utils.isNetworkAvailable(this)) {
-                            callDownloadMediaFunction(pendingFilesList.get(0), false);
+                        if (checkIfFileExists(pendingFilesList.get(0))) {
+                            mediaDb.updateData(pendingFilesList.get(0));
+                            checkConditions();
+                        } else {
+                            if (Utils.isNetworkAvailable(this)) {
+                                if (!isDownloading) {
+                                    callDownloadMediaFunction(pendingFilesList.get(0), false);
+                                }
+                            }
                         }
+                    }
+                } else {
+                    if (!isDownloading) {
+                        callDownloadMediaFunction(pendingFilesList.get(0), false);
                     }
                 }
             }
+
+          /*  Log.d("pendingsize", String.valueOf(pendingFilesList.size()));
+            Log.d("allsize", String.valueOf(allFilesList.size()));
+            Log.d("downloadsize", String.valueOf(downloadedFilesList.size()));
+*/
+            if (pendingFilesList.isEmpty()) {
+                playGraphics();
+            } else playFromRaw();
         }
     }
 
@@ -262,6 +282,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                         + File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + path));
                 videoView.start();
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -274,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                         File.separator + path);
                 imageView.setImageURI(uri);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
 
@@ -285,7 +307,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             }
 
             int finalDur = dur;
-            mediaCountDownTimer = new MediaCountDownTimer(finalDur,1000,this);
+            mediaCountDownTimer = new MediaCountDownTimer(finalDur, 1000, this);
             mediaCountDownTimer.start();
             // handler.postDelayed(this::checkConditions, finalDur);
         }
@@ -311,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
     }
 
     private void playFromRaw() {
-        String path = "android.resource://" + getPackageName() + "/" + R.raw.mediafly;
+        String path = "android.resource://" + getPackageName() + "/" + "raw/" + "max_video.mp4";
         videoView.setVideoURI(Uri.parse(path));
         videoView.start();
     }
@@ -339,11 +361,38 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 file.getCanonicalFile().delete();
             } catch (IOException e) {
                 e.printStackTrace();
+                Log.d("error", e.toString());
             }
             if (file.exists()) {
                 getApplicationContext().deleteFile(file.getName());
             }
         }
+
+        Log.d("fileDelete", String.valueOf(checkIfFileExists(file.getPath())));
+    }
+
+    private void deleteRemovedFiles() {
+        String path = Environment.getExternalStorageDirectory()
+                + File.separator + Environment.DIRECTORY_DOWNLOADS;
+        Log.d("Files", "Path: " + path);
+        File directory = new File(path);
+        File[] files = directory.listFiles();
+        Log.d("Files", "Size: " + files.length);
+        for (int i = 0; i < files.length; i++) {
+            Log.d("Files", "FileName:" + path + "/" + files[i].getName());
+            boolean exists = false;
+            for (int j = 0; j < allFilesList.size(); j++) {
+                Log.d("Files", "FileName:" + path + "/" + allFilesList.get(j));
+                if (files[i].getName().equals(allFilesList.get(j))) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                deleteFromDownloads(files[i].getName());
+            }
+        }
+
     }
 
     //Generate qr hard codely
@@ -357,6 +406,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             imageQR.setImageBitmap(bitmap);
         } catch (WriterException e) {
             e.printStackTrace();
+            Log.d("error", e.toString());
         }
     }
 
@@ -433,6 +483,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 imageQR.setImageBitmap(bitmap);
             } catch (WriterException e) {
                 e.printStackTrace();
+                Log.d("error", e.toString());
             }
         }
 
@@ -442,6 +493,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
     //download file
     private void callDownloadMediaFunction(String fileName, Boolean isComingForApk) {
         mProgressDialog = new ProgressDialog(this);
+        isDownloading = true;
         if (isComingForApk) {
             mProgressDialog.setMessage("Downloading Latest APK");
             mProgressDialog.setIndeterminate(true);
@@ -459,6 +511,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 downloadTask.cancel(true);
             }
 
@@ -467,6 +520,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             try {
                 downloadTask.execute(Constants.BASE_URL + fileName);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 downloadTask.cancel(true);
             }
         }
@@ -488,7 +542,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
     @Override
     public void onCompleteMediaTimer(@NonNull String action) {
         // callAppInfoApi();
-        checkConditions(true);
+        checkConditions();
         Log.d("resumecontent", "yes");
 
     }
@@ -553,6 +607,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                     output.write(data, 0, count);
                 }
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 return e.toString();
             } finally {
                 try {
@@ -561,6 +616,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                     if (input != null)
                         input.close();
                 } catch (IOException ignored) {
+                    Log.d("error", ignored.toString());
                 }
 
                 if (connection != null)
@@ -578,7 +634,6 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                     getClass().getName());
             mWakeLock.acquire();
-
             mProgressDialog.show();
 
         }
@@ -596,9 +651,11 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         protected void onPostExecute(String result) {
             mWakeLock.release();
             mProgressDialog.dismiss();
+            isDownloading = false;
             if (result != null) {
                 //    Toast.makeText(MainActivity.this, "Download error: " + result, Toast.LENGTH_LONG).show();
                 Log.d("Download Error", result);
+                checkConditions();
             } else {
                 //    Toast.makeText(MainActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
@@ -609,10 +666,10 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                     updateApp(destination, uri);
                 } else {
                     mediaDb.updateData(fileName);
-                    checkConditions(false);
-                    if (!pendingFilesList.isEmpty()) {
+                    checkConditions();
+                  /*  if (!pendingFilesList.isEmpty()) {
                         callDownloadMediaFunction(pendingFilesList.get(0), false);
-                    }
+                    }*/
                 }
 
             }
@@ -641,16 +698,18 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                     if (!mediaList.isEmpty()) {
 
                         Log.d("hitMediaApi", "API HIT");
-                        if (!allFilesList.isEmpty()) {
+                      /*  if (!allFilesList.isEmpty()) {
                             playFromRaw();
                             for (int i = 0; i < allFilesList.size(); i++) {
                                 if (checkIfFileExists(allFilesList.get(i))) {
                                     deleteFromDownloads(allFilesList.get(i));
                                 }
                             }
-                        } else playFromRaw();
+                        }*/
                         clearMediaData();
                         mediaDb.clearDatabase();
+
+                   //     Log.d("dbIsEmpty", String.valueOf(mediaDb.checkDbIsEmpty()));
 
                         for (int i = 0; i < mediaList.size(); i++) {
                             try {
@@ -667,10 +726,19 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                                         (mediaList.get(i).getEdate()),
                                         mediaList.get(i).getDuration());
                             } catch (Exception e) {
+                                Log.d("error", e.toString());
                                 e.printStackTrace();
                             }
                         }
-                        checkConditions(false);
+                        allFilesList = mediaDb.getList("fileName");
+
+                        for (int j = 0; j < allFilesList.size(); j++) {
+                            if (checkIfFileExists(allFilesList.get(i))) {
+                                mediaDb.updateData(allFilesList.get(i));
+                            }
+                        }
+                        deleteRemovedFiles();
+                        checkConditions();
                     }
                 } else {
                     Toast.makeText(MainActivity.this, "Please start a campaign first.", Toast.LENGTH_SHORT).show();
@@ -780,18 +848,20 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 if (response.isSuccessful()) {
                     AppInfoModel model = response.body();
 
-                    Log.d("validversion", model.getIsValidDevice());
-                    Log.d("version", model.getVersion().toString());
+                    /*Log.d("validversion", model.getIsValidDevice());
+                    Log.d("version", model.getVersion().toString());*/
                     if (model.getIsValidDevice().equals("false")) {
                         Utilities.setStringPreference(MainActivity.this, Constants.IS_LOGGED_IN,
                                 "NO", Constants.PREF_NAME);
 
+                        newsCountDownTimer.cancel();
                         mediaCountDownTimer.cancel();
                         Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
                         startActivity(intent);
                         finish();
                     } else {
                         if (!model.getVersion().toString().equals(Utilities.getStringPref(MainActivity.this, Constants.APP_VERSION, Constants.PREF_NAME))) {
+
                             Toast.makeText(MainActivity.this, "Update Available", Toast.LENGTH_SHORT).show();
 
                             Utilities.setStringPreference(getApplicationContext(), Constants.APP_VERSION,
@@ -806,7 +876,9 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                                 deleteFromDownloads("Mediafly.apk");
                             }
 
-                            callDownloadMediaFunction(url, true);
+                            if (!isDownloading) {
+                                callDownloadMediaFunction(url, true);
+                            }
                         }
                     }
 
