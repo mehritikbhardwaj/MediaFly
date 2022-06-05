@@ -67,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
     ArrayList<String> fileType = new ArrayList<>();
     ArrayList<String> qrUrl = new ArrayList<>();
     ArrayList<String> mediaDuration = new ArrayList<>();
-    
+
     ImageView imageQR, imageView;
     ProgressDialog mProgressDialog;
     VideoView videoView;
@@ -119,17 +119,15 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         hideNewsSection();
 
         if (Utils.isNetworkAvailable(this)) {
-            checkConditions(false);
+            playFromRaw();
+            //  checkConditions(false);
             callCheckShowNewsStatusApi();
-            callGetMediaListApi();
             handler = new Handler();
             handler.postDelayed(() -> {
-                if (!pendingFilesList.isEmpty()) {
-                    if (Utils.isNetworkAvailable(this)) {
-                        callDownloadMediaFunction(pendingFilesList.get(0), false);
-                    }
+                if (Utils.isNetworkAvailable(this)) {
+                    callGetMediaListApi();
                 }
-            }, 1000 * 15);
+            }, 1000 * 10);
         } else {
             Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             hideNewsSection();

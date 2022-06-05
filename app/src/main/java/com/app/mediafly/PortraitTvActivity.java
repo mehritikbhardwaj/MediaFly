@@ -75,15 +75,16 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
 
     Integer j = 0, i = 0, mediaPlay = 0;
 
+    Boolean isDownloading = false;
     NewsCountDownTimer newsCountDownTimer;
     MediaCountDownTimer mediaCountDownTimer;
     Handler handler = new Handler();
     Runnable runnable;
-    int delay = 1000 * 60 *60;
+    int delay = 1000 * 60 * 5;
 
     @Override
     protected void onResume() {
-        newsCountDownTimer = new NewsCountDownTimer(10000, 1000, this);
+        newsCountDownTimer = new NewsCountDownTimer(5000, 1000, this);
         newsCountDownTimer.start();
         handler.postDelayed(runnable = () -> {
             handler.postDelayed(runnable, delay);
@@ -91,12 +92,13 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 callGetMediaListApi();
             }
         }, delay);
+
         if (Utils.isNetworkAvailable(this)) {
             callAppInfoApi();
         }
         super.onResume();
         if (!videoView.isPlaying()) {
-            checkConditions(false);
+            checkConditions();
         }
     }
 
@@ -117,28 +119,26 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         hideNewsSection();
 
         if (Utils.isNetworkAvailable(this)) {
-            checkConditions(false);
+            //   playFromRaw();
+            checkConditions();
             callCheckShowNewsStatusApi();
-            callGetMediaListApi();
             handler = new Handler();
             handler.postDelayed(() -> {
-                if (!pendingFilesList.isEmpty()) {
-                    if (Utils.isNetworkAvailable(this)) {
-                        callDownloadMediaFunction(pendingFilesList.get(0), false);
-                    }
+                if (Utils.isNetworkAvailable(this)) {
+                    callGetMediaListApi();
                 }
-            }, 1000 * 15);
+            }, 1000 * 10);
         } else {
             Toast.makeText(this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             hideNewsSection();
-            checkConditions(false);
+            checkConditions();
         }
 
-        videoView.setOnCompletionListener(mediaPlayer -> checkConditions(false));
+        videoView.setOnCompletionListener(mediaPlayer -> checkConditions());
 
         videoView.setOnErrorListener((mediaPlayer, i, i1) -> {
             Log.d("playError", "error");
-            checkConditions(false);
+            checkConditions();
             return true;
         });
     }
@@ -158,11 +158,10 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             installx.setDataAndType(uri, "\"application/vnd.android.package-archive\"");
             this.startActivity(installx);
         }
-
     }
 
-    private void checkConditions(boolean comingafterapi) {
-        Log.d("checkcond","true");
+    private void checkConditions() {
+        Log.d("checkcond", "true");
         clearMediaData();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
@@ -173,9 +172,23 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 Toast.makeText(PortraitTvActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             }
         } else {
+
             clearMediaData();
 
             allFilesList = mediaDb.getList("fileName");
+/*
+            if (!allFilesList.isEmpty()){
+                deleteRemovedFiles();
+            }*/
+
+            Log.d("allfilesize", String.valueOf(allFilesList.size()));
+            for (int i = 0; i < allFilesList.size(); i++) {
+                if (checkIfFileExists(allFilesList.get(i))) {
+                    mediaDb.updateData(allFilesList.get(i));
+                }
+            }
+
+
             downloadedFilesList = mediaDb.getDownloadedFileList("fileName");
             fileType = mediaDb.getDownloadedFileList("format");
             pendingFilesList = mediaDb.getPendingFileNames();
@@ -192,14 +205,20 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         mediaDuration.remove(mediaDuration.get(i));
                     }
                 }
+
                 if (!pendingFilesList.isEmpty()) {
-                    playFromRaw();
-                    if(comingafterapi){
-                            if (Utils.isNetworkAvailable(this)) {
-                                callDownloadMediaFunction(pendingFilesList.get(0), false);
+                    if (Utils.isNetworkAvailable(this)) {
+                        for (int i = 0; i < pendingFilesList.size(); i++) {
+                            if (!checkIfFileExists(pendingFilesList.get(i))) {
+                                if (!isDownloading) {
+                                    callDownloadMediaFunction(pendingFilesList.get(0), false);
+                                }
+                            } else {
+                                mediaDb.updateData(pendingFilesList.get(i));
+                            }
                         }
                     }
-                } else playGraphics();
+                }
             } else {
                 if (!downloadedFilesList.isEmpty()) {
                     for (int i = 0; i < downloadedFilesList.size(); i++) {
@@ -211,28 +230,34 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                             mediaDuration.remove(mediaDuration.get(i));
                         }
                     }
-                    if (!pendingFilesList.isEmpty()) {
-                        playFromRaw();
-                    } else playGraphics();
-                } else {
-                    playFromRaw();
-                }
 
-                if (!pendingFilesList.isEmpty()) {
-                    if (checkIfFileExists(pendingFilesList.get(0))) {
-                        mediaDb.updateData(pendingFilesList.get(0));
-                        checkConditions(false);
-                    }
-                }
-
-                if(comingafterapi){
                     if (!pendingFilesList.isEmpty()) {
-                        if (Utils.isNetworkAvailable(this)) {
-                            callDownloadMediaFunction(pendingFilesList.get(0), false);
+                        if (checkIfFileExists(pendingFilesList.get(0))) {
+                            mediaDb.updateData(pendingFilesList.get(0));
+                            checkConditions();
+                        } else {
+                            if (Utils.isNetworkAvailable(this)) {
+                                if (!isDownloading) {
+                                    callDownloadMediaFunction(pendingFilesList.get(0), false);
+                                }
+                            }
                         }
                     }
+                } else {
+                    if (!isDownloading) {
+                        callDownloadMediaFunction(pendingFilesList.get(0), false);
+                    }
                 }
+
             }
+
+            Log.d("pendingsize", String.valueOf(pendingFilesList.size()));
+            Log.d("allsize", String.valueOf(allFilesList.size()));
+            Log.d("downloadsize", String.valueOf(downloadedFilesList.size()));
+
+            if (pendingFilesList.isEmpty()) {
+                playGraphics();
+            } else playFromRaw();
         }
     }
 
@@ -262,6 +287,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         + File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + path));
                 videoView.start();
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -274,6 +300,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         File.separator + path);
                 imageView.setImageURI(uri);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 //  Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
 
@@ -285,13 +312,13 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             }
 
             int finalDur = dur;
-            mediaCountDownTimer = new MediaCountDownTimer(finalDur,1000,this);
+            mediaCountDownTimer = new MediaCountDownTimer(finalDur, 1000, this);
             mediaCountDownTimer.start();
-           // handler.postDelayed(this::checkConditions, finalDur);
+            // handler.postDelayed(this::checkConditions, finalDur);
         }
         if (mediaPlay == 20) {
             if (Utils.isNetworkAvailable(PortraitTvActivity.this)) {
-                  callAppInfoApi();
+                callAppInfoApi();
                 callCheckShowNewsStatusApi();
             }
         }
@@ -311,7 +338,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
     }
 
     private void playFromRaw() {
-        String path = "android.resource://" + getPackageName() + "/" + R.raw.mediafly;
+        String path = "android.resource://" + getPackageName() + "/" + R.raw.max_video;
         videoView.setVideoURI(Uri.parse(path));
         videoView.start();
     }
@@ -339,12 +366,40 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 file.getCanonicalFile().delete();
             } catch (IOException e) {
                 e.printStackTrace();
+                Log.d("error", e.toString());
             }
             if (file.exists()) {
                 getApplicationContext().deleteFile(file.getName());
             }
         }
+
+        Log.d("fileDelete", String.valueOf(checkIfFileExists(file.getPath())));
     }
+
+    private void deleteRemovedFiles() {
+        String path = Environment.getExternalStorageDirectory()
+                + File.separator + Environment.DIRECTORY_DOWNLOADS;
+        Log.d("Files", "Path: " + path);
+        File directory = new File(path);
+        File[] files = directory.listFiles();
+        Log.d("Files", "Size: " + files.length);
+        for (int i = 0; i < files.length; i++) {
+            Log.d("Files", "FileName:" + path + "/" + files[i].getName());
+            boolean exists = false;
+            for (int j = 0; j < allFilesList.size(); j++) {
+                Log.d("Files", "FileName:" + path + "/" + allFilesList.get(j));
+                if (files[i].getName().equals(allFilesList.get(j))) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                deleteFromDownloads(files[i].getName());
+            }
+        }
+
+    }
+
 
     //Generate qr hard codely
     private void generateQR() {
@@ -357,6 +412,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             imageQR.setImageBitmap(bitmap);
         } catch (WriterException e) {
             e.printStackTrace();
+            Log.d("error", e.toString());
         }
     }
 
@@ -433,6 +489,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 imageQR.setImageBitmap(bitmap);
             } catch (WriterException e) {
                 e.printStackTrace();
+                Log.d("error", e.toString());
             }
         }
 
@@ -442,6 +499,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
     //download file
     private void callDownloadMediaFunction(String fileName, Boolean isComingForApk) {
         mProgressDialog = new ProgressDialog(this);
+        isDownloading = true;
         if (isComingForApk) {
             mProgressDialog.setMessage("Downloading Latest APK");
             mProgressDialog.setIndeterminate(true);
@@ -459,6 +517,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 downloadTask.cancel(true);
             }
 
@@ -467,6 +526,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             try {
                 downloadTask.execute(Constants.BASE_URL + fileName);
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 downloadTask.cancel(true);
             }
         }
@@ -487,9 +547,9 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
 
     @Override
     public void onCompleteMediaTimer(@NonNull String action) {
-             // callAppInfoApi();
-            checkConditions(true);
-            Log.d("resumecontent", "yes");
+        // callAppInfoApi();
+        checkConditions();
+        Log.d("resumecontent", "yes");
 
     }
 
@@ -553,6 +613,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                     output.write(data, 0, count);
                 }
             } catch (Exception e) {
+                Log.d("error", e.toString());
                 return e.toString();
             } finally {
                 try {
@@ -561,6 +622,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                     if (input != null)
                         input.close();
                 } catch (IOException ignored) {
+                    Log.d("error", ignored.toString());
                 }
 
                 if (connection != null)
@@ -578,7 +640,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                     getClass().getName());
             mWakeLock.acquire();
-
             mProgressDialog.show();
 
         }
@@ -596,9 +657,11 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         protected void onPostExecute(String result) {
             mWakeLock.release();
             mProgressDialog.dismiss();
+            isDownloading = false;
             if (result != null) {
                 //    Toast.makeText(PortraitTvActivity.this, "Download error: " + result, Toast.LENGTH_LONG).show();
                 Log.d("Download Error", result);
+                checkConditions();
             } else {
                 //    Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
@@ -609,10 +672,10 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                     updateApp(destination, uri);
                 } else {
                     mediaDb.updateData(fileName);
-                    checkConditions(false);
-                    if (!pendingFilesList.isEmpty()) {
+                    checkConditions();
+                  /*  if (!pendingFilesList.isEmpty()) {
                         callDownloadMediaFunction(pendingFilesList.get(0), false);
-                    }
+                    }*/
                 }
 
             }
@@ -641,16 +704,18 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                     if (!mediaList.isEmpty()) {
 
                         Log.d("hitMediaApi", "API HIT");
-                        if (!allFilesList.isEmpty()) {
+                      /*  if (!allFilesList.isEmpty()) {
                             playFromRaw();
                             for (int i = 0; i < allFilesList.size(); i++) {
                                 if (checkIfFileExists(allFilesList.get(i))) {
                                     deleteFromDownloads(allFilesList.get(i));
                                 }
                             }
-                        } else playFromRaw();
+                        }*/
                         clearMediaData();
                         mediaDb.clearDatabase();
+
+                        Log.d("dbIsEmpty", String.valueOf(mediaDb.checkDbIsEmpty()));
 
                         for (int i = 0; i < mediaList.size(); i++) {
                             try {
@@ -667,10 +732,19 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                                         (mediaList.get(i).getEdate()),
                                         mediaList.get(i).getDuration());
                             } catch (Exception e) {
+                                Log.d("error", e.toString());
                                 e.printStackTrace();
                             }
                         }
-                        checkConditions(false);
+                        allFilesList = mediaDb.getList("fileName");
+
+                        for (int j = 0; j < allFilesList.size(); j++) {
+                            if (checkIfFileExists(allFilesList.get(i))) {
+                                mediaDb.updateData(allFilesList.get(i));
+                            }
+                        }
+                        deleteRemovedFiles();
+                        checkConditions();
                     }
                 } else {
                     Toast.makeText(PortraitTvActivity.this, "Please start a campaign first.", Toast.LENGTH_SHORT).show();
@@ -806,7 +880,9 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                                 deleteFromDownloads("Mediafly.apk");
                             }
 
-                            callDownloadMediaFunction(url, true);
+                            if (!isDownloading) {
+                                callDownloadMediaFunction(url, true);
+                            }
                         }
                     }
 
@@ -820,7 +896,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             @Override
             public void onFailure(Call<AppInfoModel> call, Throwable t) {
                 Log.e("ONFAILURE", t.toString());
-             //   Toast.makeText(PortraitTvActivity.this, t.toString(), Toast.LENGTH_SHORT).show();
+                //   Toast.makeText(PortraitTvActivity.this, t.toString(), Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -9,13 +9,13 @@
         android:scaleType="fitXY"
         android:visibility="gone"
         android:layout_height="match_parent"
-        android:src="@drawable/splash_land"/>
+        android:src="@drawable/splash"/>
 
     <ImageView
         android:id="@+id/ivPortraitUI"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitXY"
-        android:src="@drawable/splash"/>
+        android:src="@drawable/maxima"/>
 
 </RelativeLayout>
