@@ -96,6 +96,9 @@ public class LoginActivity extends AppCompatActivity {
                     Utilities.setStringPreference(mContext, Constants.ORIENTATION, model.getOrientation(),
                             Constants.PREF_NAME);
 
+                    Utilities.setStringPreference(mContext, Constants.QR, model.getQrcode(),
+                            Constants.PREF_NAME);
+
                     Utilities.setStringPreference(mContext, Constants.DEVICE_ID,
                             String.valueOf(model.getDeviceid()), Constants.PREF_NAME);
 

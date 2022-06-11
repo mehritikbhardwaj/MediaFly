@@ -165,7 +165,6 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         clearMediaData();
         if (mediaDb.checkDbIsEmpty()) {
             playFromRaw();
-//            generateQR();
             if (Utils.isNetworkAvailable(MainActivity.this)) {
                 callGetMediaListApi();
             } else {
@@ -336,6 +335,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         String path = "android.resource://" + getPackageName() + "/" + "raw/" + "max_video.mp4";
         videoView.setVideoURI(Uri.parse(path));
         videoView.start();
+        generateQR(Utilities.getStringPref(this, Constants.QR, Constants.PREF_NAME));
     }
 
     //check if file exists in storage
@@ -382,7 +382,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
             Log.d("Files", "FileName:" + path + "/" + files[i].getName());
             boolean exists = false;
             for (int j = 0; j < allFilesList.size(); j++) {
-                Log.d("Files", "FileName:" + path + "/" + allFilesList.get(j));
+                Log.d("Files", "apifiles:" + path + "/" + allFilesList.get(j));
                 if (files[i].getName().equals(allFilesList.get(j))) {
                     exists = true;
                     break;
@@ -507,7 +507,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
         }
 
         if (isComingForApk) {
-            final MainActivity.DownloadTask downloadTask = new MainActivity.DownloadTask("Mediafly.apk", true);
+            final MainActivity.DownloadTask downloadTask = new MainActivity.DownloadTask("Maxima.apk", true);
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
@@ -581,7 +581,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 String path = "";
                 if (isComingForApk) {
                     path = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
                 } else {
                     path = Environment.getExternalStorageDirectory() +
                             File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
@@ -660,7 +660,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                 //    Toast.makeText(MainActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
                     String destination = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
                     Uri uri = Uri.parse("file://" + destination);
 
                     updateApp(destination, uri);
@@ -709,7 +709,7 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                         clearMediaData();
                         mediaDb.clearDatabase();
 
-                   //     Log.d("dbIsEmpty", String.valueOf(mediaDb.checkDbIsEmpty()));
+                        //     Log.d("dbIsEmpty", String.valueOf(mediaDb.checkDbIsEmpty()));
 
                         for (int i = 0; i < mediaList.size(); i++) {
                             try {
@@ -868,12 +868,12 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                                     String.valueOf(model.getVersion()), Constants.PREF_NAME);
 
                             String destination = Environment.getExternalStorageDirectory() +
-                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
 
                             String url = model.getLink();
                             File file = new File(destination);
                             if (file.exists()) {
-                                deleteFromDownloads("Mediafly.apk");
+                                deleteFromDownloads("Maxima.apk");
                             }
 
                             if (!isDownloading) {

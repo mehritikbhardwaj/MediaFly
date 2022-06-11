@@ -336,6 +336,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         String path = "android.resource://" + getPackageName() + "/" + "raw/" + "max_video.mp4";
         videoView.setVideoURI(Uri.parse(path));
         videoView.start();
+        generateQR(Utilities.getStringPref(this, Constants.QR, Constants.PREF_NAME));
     }
 
     //check if file exists in storage
@@ -507,7 +508,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         }
 
         if (isComingForApk) {
-            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Mediafly.apk", true);
+            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Maxima.apk", true);
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
@@ -581,7 +582,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 String path = "";
                 if (isComingForApk) {
                     path = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
                 } else {
                     path = Environment.getExternalStorageDirectory() +
                             File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
@@ -660,7 +661,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 //    Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
                     String destination = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
                     Uri uri = Uri.parse("file://" + destination);
 
                     updateApp(destination, uri);
@@ -732,11 +733,14 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         }
                         allFilesList = mediaDb.getList("fileName");
 
-                        for (int j = 0; j < allFilesList.size(); j++) {
-                            if (checkIfFileExists(allFilesList.get(i))) {
-                                mediaDb.updateData(allFilesList.get(i));
+                        if(!isDownloading){
+                            for (int j = 0; j < allFilesList.size(); j++) {
+                                if (checkIfFileExists(allFilesList.get(j))) {
+                                    mediaDb.updateData(allFilesList.get(j));
+                                }
                             }
                         }
+
                         deleteRemovedFiles();
                         checkConditions();
                     }
@@ -868,12 +872,12 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                                     String.valueOf(model.getVersion()), Constants.PREF_NAME);
 
                             String destination = Environment.getExternalStorageDirectory() +
-                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Mediafly.apk";
+                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
 
                             String url = model.getLink();
                             File file = new File(destination);
                             if (file.exists()) {
-                                deleteFromDownloads("Mediafly.apk");
+                                deleteFromDownloads("Maxima.apk");
                             }
 
                             if (!isDownloading) {

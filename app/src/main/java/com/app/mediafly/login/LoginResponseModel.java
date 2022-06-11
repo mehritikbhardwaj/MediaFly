@@ -21,6 +21,11 @@ public class LoginResponseModel {
     @Expose
     private String orientation;
 
+
+    @SerializedName("qrcode")
+    @Expose
+    private String qrcode;
+
     public Integer getDeviceid() {
         return deviceid;
     }
@@ -51,5 +56,13 @@ public class LoginResponseModel {
 
     public void setOrientation(String orientation) {
         this.orientation = orientation;
+    }
+
+    public String getQrcode() {
+        return qrcode;
+    }
+
+    public void setQrcode(String qrcode) {
+        this.qrcode = qrcode;
     }
 }

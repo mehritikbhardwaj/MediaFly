@@ -12,6 +12,7 @@ public class Constants {
     public static final String STORE_NAME = "";
     public static final String DEVICE_ID = "0";
     public static final String COMPANY_NAME = "";
+    public static final String QR = "";
     public static final String ORIENTATION = "Portrait";
     public static final String IS_LOGGED_IN = "NO";
     public static final String APP_VERSION = "2";

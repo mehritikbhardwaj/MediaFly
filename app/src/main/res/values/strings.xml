@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">MediaFly</string>
+    <string name="app_name">Mediafly</string>
 
     <string name="check_internet">Please check your internet connection!</string>
     <string name="mediafly_announces_major_update_on_the_software_now_it_can_be_accessed_on_any_system">MediaFly announces major update on the software, Now it can be accessed on any system</string>
