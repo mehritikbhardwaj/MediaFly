@@ -854,8 +854,12 @@ public class MainActivity extends AppCompatActivity implements NewsCountDownTime
                         Utilities.setStringPreference(MainActivity.this, Constants.IS_LOGGED_IN,
                                 "NO", Constants.PREF_NAME);
 
-                        newsCountDownTimer.cancel();
-                        mediaCountDownTimer.cancel();
+                        if(newsCountDownTimer!=null){
+                            newsCountDownTimer.cancel();
+                        }
+                        if(mediaCountDownTimer!=null){
+                            mediaCountDownTimer.cancel();
+                        }
                         Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
                         startActivity(intent);
                         finish();

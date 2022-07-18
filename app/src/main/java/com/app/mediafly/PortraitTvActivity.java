@@ -81,6 +81,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
     Handler handler = new Handler();
     Runnable runnable;
     int delay = 1000 * 60 * 60;
+    int finalDur;
 
     @Override
     protected void onResume() {
@@ -89,6 +90,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         handler.postDelayed(runnable = () -> {
             handler.postDelayed(runnable, delay);
             if (Utils.isNetworkAvailable(this)) {
+                callCheckShowNewsStatusApi();
                 callGetMediaListApi();
             }
         }, delay);
@@ -96,6 +98,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         if (Utils.isNetworkAvailable(this)) {
             callAppInfoApi();
         }
+
         super.onResume();
         if (!videoView.isPlaying()) {
             checkConditions();
@@ -111,17 +114,12 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         mediaDb = new mediaDatabase(this);
 
         declareUiThings();
-
-    /*    Log.d("orientation", Utilities.getStringPref(this, Constants.ORIENTATION, Constants.PREF_NAME));
-        Log.d("deviceid", Utilities.getStringPref(this, Constants.DEVICE_ID, Constants.PREF_NAME));
-        Log.d("loged", Utilities.getStringPref(this, Constants.IS_LOGGED_IN, Constants.PREF_NAME));
-*/
         hideNewsSection();
 
         if (Utils.isNetworkAvailable(this)) {
-            //   playFromRaw();
-            checkConditions();
+            playFromRaw();
             callCheckShowNewsStatusApi();
+            checkConditions();
             handler = new Handler();
             handler.postDelayed(() -> {
                 if (Utils.isNetworkAvailable(this)) {
@@ -172,7 +170,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 Toast.makeText(PortraitTvActivity.this, R.string.check_internet, Toast.LENGTH_SHORT).show();
             }
         } else {
-
             clearMediaData();
 
             allFilesList = mediaDb.getList("fileName");
@@ -190,6 +187,10 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             pendingFilesList = mediaDb.getPendingFileNames();
             qrUrl = mediaDb.getDownloadedFileList("actionUrl");
             mediaDuration = mediaDb.getDownloadedFileList("duration");
+
+            Log.d("downloadedFilesList", String.valueOf(downloadedFilesList.size()));
+            Log.d("fileType", String.valueOf(fileType.size()));
+            Log.d("pendingFilesList", String.valueOf(pendingFilesList.size()));
 
             if (allFilesList.size() == downloadedFilesList.size()) {
                 for (int i = 0; i < downloadedFilesList.size(); i++) {
@@ -305,24 +306,17 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             } else {
                 dur = 1000 * Integer.parseInt(duration);
             }
+             finalDur = dur;
 
-            int finalDur = dur;
             mediaCountDownTimer = new MediaCountDownTimer(finalDur, 1000, this);
             mediaCountDownTimer.start();
             // handler.postDelayed(this::checkConditions, finalDur);
-        }
-        if (mediaPlay == 20) {
-            if (Utils.isNetworkAvailable(PortraitTvActivity.this)) {
-                callAppInfoApi();
-                callCheckShowNewsStatusApi();
-            }
         }
 
         mediaPlay++;
         i++;
 
     }
-
 
     private void clearMediaData() {
         downloadedFilesList.clear();
@@ -490,7 +484,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
 
     }
 
-
     //download file
     private void callDownloadMediaFunction(String fileName, Boolean isComingForApk) {
         mProgressDialog = new ProgressDialog(this);
@@ -508,7 +501,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         }
 
         if (isComingForApk) {
-            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Maxima.apk", true);
+            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Landmark.apk", true);
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
@@ -582,7 +575,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 String path = "";
                 if (isComingForApk) {
                     path = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
                 } else {
                     path = Environment.getExternalStorageDirectory() +
                             File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
@@ -661,7 +654,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 //    Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
                     String destination = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
                     Uri uri = Uri.parse("file://" + destination);
 
                     updateApp(destination, uri);
@@ -733,7 +726,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         }
                         allFilesList = mediaDb.getList("fileName");
 
-                        if(!isDownloading){
+                        if (!isDownloading) {
                             for (int j = 0; j < allFilesList.size(); j++) {
                                 if (checkIfFileExists(allFilesList.get(j))) {
                                     mediaDb.updateData(allFilesList.get(j));
@@ -756,7 +749,6 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
             }
         });
     }
-
 
     private void callMediaPlayApi(String fileName) {
         ApiService apiService = RetroClient.getApiService();
@@ -859,25 +851,31 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                         Utilities.setStringPreference(PortraitTvActivity.this, Constants.IS_LOGGED_IN,
                                 "NO", Constants.PREF_NAME);
 
-                        mediaCountDownTimer.cancel();
-                        newsCountDownTimer.cancel();
+
+                        if (newsCountDownTimer != null) {
+                            newsCountDownTimer.cancel();
+                        }
+                        if (mediaCountDownTimer != null) {
+                            mediaCountDownTimer.cancel();
+                        }
                         Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
                         startActivity(intent);
                         finish();
+
                     } else {
-                        if (!model.getVersion().toString().equals(Utilities.getStringPref(PortraitTvActivity.this, Constants.APP_VERSION, Constants.PREF_NAME))) {
+                        if (model.getVersion().toString()!=String.valueOf(BuildConfig.VERSION_CODE)) {
                             Toast.makeText(PortraitTvActivity.this, "Update Available", Toast.LENGTH_SHORT).show();
 
-                            Utilities.setStringPreference(getApplicationContext(), Constants.APP_VERSION,
-                                    String.valueOf(model.getVersion()), Constants.PREF_NAME);
+                            Log.d("modelVersion",model.getVersion().toString());
+                            Log.d("buildVersion",String.valueOf(BuildConfig.VERSION_CODE));
 
                             String destination = Environment.getExternalStorageDirectory() +
-                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Maxima.apk";
+                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
 
                             String url = model.getLink();
                             File file = new File(destination);
                             if (file.exists()) {
-                                deleteFromDownloads("Maxima.apk");
+                                deleteFromDownloads("Landmark.apk");
                             }
 
                             if (!isDownloading) {

@@ -15,7 +15,7 @@ public class Constants {
     public static final String QR = "";
     public static final String ORIENTATION = "Portrait";
     public static final String IS_LOGGED_IN = "NO";
-    public static final String APP_VERSION = "2";
+    public static final String APP_VERSION = "8";
     public static final String BASE_URL ="https://www.mediafly.in/images/content/";
 
 
