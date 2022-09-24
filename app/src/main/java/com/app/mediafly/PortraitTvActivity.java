@@ -501,7 +501,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
         }
 
         if (isComingForApk) {
-            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Landmark.apk", true);
+            final PortraitTvActivity.DownloadTask downloadTask = new PortraitTvActivity.DownloadTask("Relaxo.apk", true);
             try {
                 downloadTask.execute(fileName);
             } catch (Exception e) {
@@ -575,7 +575,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 String path = "";
                 if (isComingForApk) {
                     path = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Relaxo.apk";
                 } else {
                     path = Environment.getExternalStorageDirectory() +
                             File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + fileName;
@@ -654,7 +654,7 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                 //    Toast.makeText(PortraitTvActivity.this, "File downloaded", Toast.LENGTH_SHORT).show();
                 if (isComingForApk) {
                     String destination = Environment.getExternalStorageDirectory() +
-                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
+                            File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Relaxo.apk";
                     Uri uri = Uri.parse("file://" + destination);
 
                     updateApp(destination, uri);
@@ -870,12 +870,12 @@ public class PortraitTvActivity extends AppCompatActivity implements NewsCountDo
                             Log.d("buildVersion",String.valueOf(BuildConfig.VERSION_CODE));
 
                             String destination = Environment.getExternalStorageDirectory() +
-                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Landmark.apk";
+                                    File.separator + Environment.DIRECTORY_DOWNLOADS + File.separator + "Relaxo.apk";
 
                             String url = model.getLink();
                             File file = new File(destination);
                             if (file.exists()) {
-                                deleteFromDownloads("Landmark.apk");
+                                deleteFromDownloads("Relaxo.apk");
                             }
 
                             if (!isDownloading) {
